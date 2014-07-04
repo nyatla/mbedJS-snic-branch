@@ -84,7 +84,7 @@ NyLPC_TBool NyLPC_TJsonRpcParserResult_getByte(const union NyLPC_TJsonRpcParserR
 
 const struct NyLPC_TTextIdTbl method_name_tbl[]=
 {
-	{"version",NAME_ID_VERSION},
+	{"jsonrpc",NAME_ID_VERSION},
 	{"method",NAME_ID_METHOD},
 	{"params",NAME_ID_PARAMS},
 	{"id",NAME_ID_ID},

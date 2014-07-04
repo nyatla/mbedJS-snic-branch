@@ -1,7 +1,7 @@
 #include "NyLPC_cMiMicEnv.h"
 #include "../uip/NyLPC_cUipService_protected.h"
 
-const static char* VERSION="MiMic/1.5.10";
+const static char* VERSION="MiMic/1.6.0";
 
 #if NyLPC_MCU==NyLPC_MCU_LPC4088
 const static char* MCU="LPC4088";

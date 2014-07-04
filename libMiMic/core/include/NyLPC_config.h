@@ -120,7 +120,7 @@ extern "C" {
 //デバック情報
 ////////////////////////////////////////////////////////////////////////////////////////////////
 
-#define NyLPC_cHttpdThread_SIZE_OF_THREAD_STACK (1024+256)
+#define NyLPC_cHttpdThread_SIZE_OF_THREAD_STACK (1024+256+64)
 # define NyLPC_cHttpd_MAX_PERSISTENT_CONNECTION 1
 
 /*固有プラットフォーム設定はここに記述します。*/
