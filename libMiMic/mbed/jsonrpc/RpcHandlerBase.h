@@ -64,6 +64,30 @@ namespace MiMic
             }
     		return true;
     	}
+    	static bool getParamByte(ModJsonRpc* i_mod,const union NyLPC_TJsonRpcParserResult* i_rpc,unsigned char &o_val,int i_idx)
+    	{
+			if(!NyLPC_TJsonRpcParserResult_getByte(i_rpc,i_idx,(NyLPC_TUInt8*)&o_val)){
+				i_mod->putError(i_rpc->method.id,ModJsonRpc::INVALID_PARAMS);
+				return false;
+			}
+    		return true;
+    	}
+    	static bool getParamByteArray(ModJsonRpc* i_mod,const union NyLPC_TJsonRpcParserResult* i_rpc,const unsigned char* &o_val,unsigned char &o_len,int i_idx)
+    	{
+			if(!NyLPC_TJsonRpcParserResult_getByteArray(i_rpc,i_idx,(const NyLPC_TUInt8**)&o_val,&o_len)){
+				i_mod->putError(i_rpc->method.id,ModJsonRpc::INVALID_PARAMS);
+				return false;
+			}
+    		return true;
+    	}
+    	static bool getParamString(ModJsonRpc* i_mod,const union NyLPC_TJsonRpcParserResult* i_rpc,const char* &o_val,int i_idx)
+    	{
+			if(!NyLPC_TJsonRpcParserResult_getStr(i_rpc,i_idx,(const NyLPC_TChar**)&o_val,NULL)){
+				i_mod->putError(i_rpc->method.id,ModJsonRpc::INVALID_PARAMS);
+				return false;
+			}
+    		return true;
+    	}
     	static bool getParamInt(ModJsonRpc* i_mod,const union NyLPC_TJsonRpcParserResult* i_rpc,int& o_val,int i_idx)
     	{
 			if(!NyLPC_TJsonRpcParserResult_getInt32(i_rpc,i_idx,((NyLPC_TInt32*)&o_val))){

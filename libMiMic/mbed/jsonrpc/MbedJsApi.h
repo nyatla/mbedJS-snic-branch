@@ -17,5 +17,9 @@ namespace MiMic
         const static struct NyLPC_TJsonRpcClassDef RPC_MBED_PORT_IN;
         const static struct NyLPC_TJsonRpcClassDef RPC_MBED_SPI;
         const static struct NyLPC_TJsonRpcClassDef RPC_MBED_SPI_SLAVE;
+        const static struct NyLPC_TJsonRpcClassDef RPC_MBED_SERIAL;
+        const static struct NyLPC_TJsonRpcClassDef RPC_MBED_I2C;
+        const static struct NyLPC_TJsonRpcClassDef RPC_MBED_I2C_SLAVE;
+        const static struct NyLPC_TJsonRpcClassDef RPC_MBED_MCU;
     };
 }

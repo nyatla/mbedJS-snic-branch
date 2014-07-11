@@ -8,7 +8,7 @@ namespace MiMic
         static NyLPC_TBool new1(const union NyLPC_TJsonRpcParserResult* i_rpc,void* i_param)
         {
         	//u
-            ModJsonRpc* mod=(ModJsonRpc*)i_param;
+            ModJsonRpc* mod=((ModJsonRpc::TcJsonRpcEx_t*)i_param)->cppmod_ptr;
             PinName pin;
             if(getParamsAsPin(mod,i_rpc,&pin,1)){
     			addNewObjectBatch(mod,i_rpc->method.id,new ModJsonRpc::RpcObject<PwmOut>(new PwmOut(pin)));
@@ -18,13 +18,13 @@ namespace MiMic
         static NyLPC_TBool write_fx(const union NyLPC_TJsonRpcParserResult* i_rpc,void* i_param)
         {
         	//dd return void
-            ModJsonRpc* mod=(ModJsonRpc*)i_param;
+            ModJsonRpc* mod=((ModJsonRpc::TcJsonRpcEx_t*)i_param)->cppmod_ptr;
             PwmOut* inst=(PwmOut*)getObjectBatch(mod,i_rpc);
 			if(inst!=NULL){
 				int v;
 	        	if(getParamInt(mod,i_rpc,v,1)){
 					inst->write((float)v/10000.f);
-					mod->putResult(i_rpc->method.id,"");
+					mod->putResult(i_rpc->method.id);
 	        	}
 			}
             return NyLPC_TBool_TRUE;
@@ -32,7 +32,7 @@ namespace MiMic
         static NyLPC_TBool read_fx(const union NyLPC_TJsonRpcParserResult* i_rpc,void* i_param)
         {
         	//d return d
-            ModJsonRpc* mod=(ModJsonRpc*)i_param;
+            ModJsonRpc* mod=((ModJsonRpc::TcJsonRpcEx_t*)i_param)->cppmod_ptr;
             PwmOut* inst=(PwmOut*)getObjectBatch(mod,i_rpc);
 			if(inst!=NULL){
 				mod->putResult(i_rpc->method.id,"%d",(int)(inst->read()*10000));
@@ -42,13 +42,13 @@ namespace MiMic
         static NyLPC_TBool period_fx(const union NyLPC_TJsonRpcParserResult* i_rpc,void* i_param)
         {
         	//dd return void
-            ModJsonRpc* mod=(ModJsonRpc*)i_param;
+            ModJsonRpc* mod=((ModJsonRpc::TcJsonRpcEx_t*)i_param)->cppmod_ptr;
             PwmOut* inst=(PwmOut*)getObjectBatch(mod,i_rpc);
 			if(inst!=NULL){
 				int v;
 	        	if(getParamInt(mod,i_rpc,v,1)){
 					inst->period((float)v/10000.f);
-					mod->putResult(i_rpc->method.id,"");
+					mod->putResult(i_rpc->method.id);
 	        	}
 			}
             return NyLPC_TBool_TRUE;
@@ -56,13 +56,13 @@ namespace MiMic
         static NyLPC_TBool period_ms(const union NyLPC_TJsonRpcParserResult* i_rpc,void* i_param)
         {
         	//dd return void
-            ModJsonRpc* mod=(ModJsonRpc*)i_param;
+            ModJsonRpc* mod=((ModJsonRpc::TcJsonRpcEx_t*)i_param)->cppmod_ptr;
             PwmOut* inst=(PwmOut*)getObjectBatch(mod,i_rpc);
 			if(inst!=NULL){
 				int v;
 	        	if(getParamInt(mod,i_rpc,v,1)){
 					inst->period_ms(v);
-					mod->putResult(i_rpc->method.id,"");
+					mod->putResult(i_rpc->method.id);
 	        	}
 			}
             return NyLPC_TBool_TRUE;
@@ -70,13 +70,13 @@ namespace MiMic
         static NyLPC_TBool period_us(const union NyLPC_TJsonRpcParserResult* i_rpc,void* i_param)
         {
         	//dd return void
-            ModJsonRpc* mod=(ModJsonRpc*)i_param;
+            ModJsonRpc* mod=((ModJsonRpc::TcJsonRpcEx_t*)i_param)->cppmod_ptr;
             PwmOut* inst=(PwmOut*)getObjectBatch(mod,i_rpc);
 			if(inst!=NULL){
 				int v;
 	        	if(getParamInt(mod,i_rpc,v,1)){
 					inst->period_us(v);
-					mod->putResult(i_rpc->method.id,"");
+					mod->putResult(i_rpc->method.id);
 	        	}
 			}
             return NyLPC_TBool_TRUE;
@@ -84,13 +84,13 @@ namespace MiMic
         static NyLPC_TBool pulsewidth_fx(const union NyLPC_TJsonRpcParserResult* i_rpc,void* i_param)
         {
         	//dd return void
-            ModJsonRpc* mod=(ModJsonRpc*)i_param;
+            ModJsonRpc* mod=((ModJsonRpc::TcJsonRpcEx_t*)i_param)->cppmod_ptr;
             PwmOut* inst=(PwmOut*)getObjectBatch(mod,i_rpc);
 			if(inst!=NULL){
 				int v;
 	        	if(getParamInt(mod,i_rpc,v,1)){
 					inst->pulsewidth((float)v/10000.0f);
-					mod->putResult(i_rpc->method.id,"");
+					mod->putResult(i_rpc->method.id);
 	        	}
 			}
             return NyLPC_TBool_TRUE;
@@ -98,13 +98,13 @@ namespace MiMic
         static NyLPC_TBool pulsewidth_ms(const union NyLPC_TJsonRpcParserResult* i_rpc,void* i_param)
         {
         	//dd return void
-            ModJsonRpc* mod=(ModJsonRpc*)i_param;
+            ModJsonRpc* mod=((ModJsonRpc::TcJsonRpcEx_t*)i_param)->cppmod_ptr;
             PwmOut* inst=(PwmOut*)getObjectBatch(mod,i_rpc);
 			if(inst!=NULL){
 				int v;
 	        	if(getParamInt(mod,i_rpc,v,1)){
 					inst->pulsewidth_ms(v);
-					mod->putResult(i_rpc->method.id,"");
+					mod->putResult(i_rpc->method.id);
 	        	}
 			}
             return NyLPC_TBool_TRUE;
@@ -112,13 +112,13 @@ namespace MiMic
         static NyLPC_TBool pulsewidth_us(const union NyLPC_TJsonRpcParserResult* i_rpc,void* i_param)
         {
         	//dd return void
-            ModJsonRpc* mod=(ModJsonRpc*)i_param;
+            ModJsonRpc* mod=((ModJsonRpc::TcJsonRpcEx_t*)i_param)->cppmod_ptr;
             PwmOut* inst=(PwmOut*)getObjectBatch(mod,i_rpc);
 			if(inst!=NULL){
 				int v;
 	        	if(getParamInt(mod,i_rpc,v,1)){
 					inst->pulsewidth_us(v);
-					mod->putResult(i_rpc->method.id,"");
+					mod->putResult(i_rpc->method.id);
 	        	}
 			}
             return NyLPC_TBool_TRUE;

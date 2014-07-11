@@ -3,7 +3,7 @@
 #include "HttpdConnection.h"
 #include "Httpd.h"
 #include "Net.h"
-#include <vector>
+
 
 namespace MiMic
 {
@@ -20,6 +20,11 @@ namespace MiMic
      */
     class ModJsonRpc:ModBaseClass
     {
+    public:
+    	typedef struct TcJsonRpcEx{
+    		NyLPC_TcModJsonRpc_t super;
+    		ModJsonRpc* cppmod_ptr;
+    	}TcJsonRpcEx_t;
     public:
         class BasicRpcObject
         {
@@ -50,7 +55,7 @@ namespace MiMic
         BasicRpcObject** _objects;
         const struct NyLPC_TJsonRpcClassDef** _rpc_table;
     protected:
-        NyLPC_TcModJsonRpc_t* _mod;    
+        TcJsonRpcEx_t* _mod;
     public:
         ModJsonRpc();
         /**
@@ -72,7 +77,10 @@ namespace MiMic
     public:
         //for development
         int addObject(BasicRpcObject* i_object);
-        void* getObject(int i_oid);        
+        bool removeObject(int i_id);
+
+        void* getObject(int i_oid);
+        bool putResult(unsigned int i_id);
         bool putResult(unsigned int i_id,const char* i_params_fmt,...);
         bool putError(unsigned int i_id,int i_code);
     };

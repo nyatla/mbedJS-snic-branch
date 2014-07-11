@@ -1,5 +1,3 @@
-#pragma once
-
 #include "ModBaseClass.h"
 #include "HttpdConnection.h"
 #include "NyLPC_cHttpdConnection_protected.h"
