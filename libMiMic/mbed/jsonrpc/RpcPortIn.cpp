@@ -6,13 +6,13 @@ namespace MiMic
     public:
         static NyLPC_TBool new1(const union NyLPC_TJsonRpcParserResult* i_rpc,void* i_param)
         {
-        	//ud
+        	//uu
             ModJsonRpc* mod=((ModJsonRpc::TcJsonRpcEx_t*)i_param)->cppmod_ptr;
             unsigned int port;
-            int mask;
+            unsigned int mask;
             if(getParamUInt(mod,i_rpc,port,0)){
-                if(getParamInt(mod,i_rpc,mask,1)){
-                 	addNewObjectBatch(mod,i_rpc->method.id,new ModJsonRpc::RpcObject<PortIn>(new PortIn(portId2PortName(port),mask)));
+                if(getParamUInt(mod,i_rpc,mask,1)){
+                 	addNewObjectBatch(mod,i_rpc->method.id,new ModJsonRpc::RpcObject<PortIn>(new PortIn(portId2PortName(port),(int)mask)));
                 }
             }
             return NyLPC_TBool_TRUE;
@@ -33,7 +33,7 @@ namespace MiMic
 
 const static struct NyLPC_TJsonRpcMethodDef func_table[]=
 {
-    { "_new1"	,"ud"   ,PortInHandler::new1},
+    { "_new1"	,"uu"   ,PortInHandler::new1},
     { "read"	,"d"	,PortInHandler::read},
     { NULL      ,NULL   ,NULL}
 };

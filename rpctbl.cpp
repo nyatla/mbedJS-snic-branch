@@ -1,8 +1,6 @@
-#pragma once
-
 #include "rpctbl.h"
 #include "mimic.h"
-
+#include "NyLPC_jsonrpc.h"
 const struct NyLPC_TJsonRpcClassDef* RPCTBL[]=
 {
     //mbed API
@@ -18,8 +16,11 @@ const struct NyLPC_TJsonRpcClassDef* RPCTBL[]=
     &MiMic::MbedJsApi::RPC_MBED_PORT_IN,
     &MiMic::MbedJsApi::RPC_MBED_SPI,
     &MiMic::MbedJsApi::RPC_MBED_SPI_SLAVE,
-
-
+    &MiMic::MbedJsApi::RPC_MBED_SERIAL,
+    &MiMic::MbedJsApi::RPC_MBED_I2C,
+    &MiMic::MbedJsApi::RPC_MBED_I2C_SLAVE,
+    &MiMic::MbedJsApi::RPC_MBED_MCU,
+	&NyLPC_cJsonRpcFunction_Memory,
     //end of table
     NULL
 };

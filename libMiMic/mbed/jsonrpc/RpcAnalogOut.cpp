@@ -46,7 +46,7 @@ namespace MiMic
             if(inst!=NULL){
             	unsigned int v;
 				if(getParamUInt(mod,i_rpc,v,1)){
-					inst->write((unsigned int)v);
+					inst->write_u16((unsigned short)v);
 					mod->putResult(i_rpc->method.id);
 				}
 			}
