@@ -79,25 +79,25 @@ NetConfig::NetConfig(bool i_is_factory_default)
     this->_ref_custom_upnp_desc=NULL;
 
     //check mbed
-    if(PlatformInfo::getPlatformType()!=PlatformInfo::PF_MBED) {
-        return;
-    }
-
-    if(!NyLPC_cMiMicConfiglation_hasUserConfigulation()) {
-        //is 1st read?
-        //mbed override
-        overrideMacAddrIfmbed((this->_inst));
-        //save
-        updateOnchipConfig((this->_inst));
-    } else {
-        //2nd read
-        if(i_is_factory_default) {
+    if(PlatformInfo::getPlatformType()==PlatformInfo::PF_MBED) {
+    	//mbedチップからMACアドレスを取得
+        if(!NyLPC_cMiMicConfiglation_hasUserConfigulation()) {
+            //is 1st read?
             //mbed override
             overrideMacAddrIfmbed((this->_inst));
+            //save
+            updateOnchipConfig((this->_inst));
         } else {
-            //nothing to do
+            //2nd read
+            if(i_is_factory_default) {
+                //mbed override
+                overrideMacAddrIfmbed((this->_inst));
+            } else {
+                //nothing to do
+            }
         }
     }
+
     //updateUUID
     this->setUPnPUdn(0xe29f7100,0x4ba2,0x01e0,0);
     this->_upnp_desc.device_type=UPNP_DEVICE_TYPE;

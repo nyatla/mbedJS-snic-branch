@@ -73,17 +73,15 @@ NyLPC_TInt16 NyLPC_TIPv4Addr_toString(const struct NyLPC_TIPv4Addr* i_ip,NyLPC_T
     ip=NyLPC_NTOHL(i_ip->v);
     for(l=3;l>=0;l--){
         v=(ip>>(8*l))&0xff;
-        if(v>100){
+        if(v>=100){
             *p=(v/100)+'0';
-            v=v%100;
             p++;
         }
-        if(v>10){
-            *p=(v/10)+'0';
-            v=v%10;
+        if(v>=10){
+            *p=((v%100)/10)+'0';
             p++;
         }
-        *p=v+'0';
+        *p=(v%10)+'0';
         *(p+1)='.';
         p+=2;
     }
