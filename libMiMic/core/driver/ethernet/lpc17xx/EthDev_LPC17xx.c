@@ -10,6 +10,7 @@
 #include "EthDev_LPC17xx.h"
 #include "NyLPC_os.h"
 #include "LPC17xx.h"
+#include "NyLPC_cEthernetMM.h"
 /* If no buffers are available, then wait this long before looking again.... */
 #define emacBUFFER_WAIT_DELAY_MS		 3
 #define emacBUFFER_WAIT_EMPTY_DELAY_MS	10
@@ -68,14 +69,14 @@ static NyLPC_TUInt32 waitForTxEthFrameEmpty(void)
 	{
 		p=(void*)TX_DESC_PACKET(i);
 		if(p!=NULL){
-			b=((struct NyLPC_TTxBufferHeader*)p)-1;
+			b=NyLPC_TTxBufferHeader_getBufferHeaderAddr(p);
 			b->is_lock=NyLPC_TUInt8_FALSE;
 			TX_DESC_PACKET(i)=0;
 		}
 	}
 	p=(void*)TX_DESC_PACKET(i);
 	if(p!=NULL){
-		b=((struct NyLPC_TTxBufferHeader*)p)-1;
+		b=NyLPC_TTxBufferHeader_getBufferHeaderAddr(p);
 		b->is_lock=NyLPC_TUInt8_FALSE;
 		TX_DESC_PACKET(i)=0;
 	}
@@ -89,15 +90,15 @@ void EthDev_LPC17xx_processTx(void)
 
 /**
  * Ethernetパケットを送信します。
- * allocTxBufで得たバッファか、NyLPC_TTxBufferHeaderのペイロード部分を指定すること。
+ * allocTxBufで得たバッファを指定すること。
  * <p>関数仕様</p>
  * この関数は、i_bufが
  * </div>
  */
-void EthDev_LPC17xx_sendTxEthFrame(struct NyLPC_TTxBufferHeader* i_buf,unsigned short i_size)
+void EthDev_LPC17xx_sendTxEthFrame(void* i_buf,unsigned short i_size)
 {
 	NyLPC_TUInt32	IndexNext,Index;
-
+	struct NyLPC_TTxBufferHeader* bh=NyLPC_TTxBufferHeader_getBufferHeaderAddr(i_buf);
 	//サイズ0なら送信の必要なし
 	if(i_size == 0)
 	{
@@ -109,11 +110,11 @@ void EthDev_LPC17xx_sendTxEthFrame(struct NyLPC_TTxBufferHeader* i_buf,unsigned 
 	//送信対象のメモリブロックを送信中に設定。
 //	b=(i_buf+1);
 	//送信中のメモリブロックなら無視
-	if(i_buf->is_lock){
+	if(bh->is_lock){
 		return;
 	}
 	//送信中にセット
-	i_buf->is_lock=NyLPC_TUInt8_TRUE;
+	bh->is_lock=NyLPC_TUInt8_TRUE;
 
 	//送信データのセット
 	Index = LPC_EMAC->TxProduceIndex;
@@ -122,7 +123,7 @@ void EthDev_LPC17xx_sendTxEthFrame(struct NyLPC_TTxBufferHeader* i_buf,unsigned 
 	}
 
 	//送信処理
-	TX_DESC_PACKET( Index ) = ( unsigned long )(i_buf+1);
+	TX_DESC_PACKET( Index ) = ( unsigned long )i_buf;
 	//See UM10360.pdf Table 181. Transmit descriptor control word
 	TX_DESC_CTRL( Index ) = ((i_size-1) | TCTRL_LAST | TCTRL_INT );
 	LPC_EMAC->TxProduceIndex = IndexNext;

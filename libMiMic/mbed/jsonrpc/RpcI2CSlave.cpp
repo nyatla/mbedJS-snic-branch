@@ -137,3 +137,4 @@ namespace MiMic
 		"mbedJS","I2CSlave",func_table
 	};
 }
+

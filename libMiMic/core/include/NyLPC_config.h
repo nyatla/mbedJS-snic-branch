@@ -59,6 +59,7 @@ extern "C" {
 #define NyLPC_MCU_UNKNOWN 1
 #define NyLPC_MCU_LPC17xx 2
 #define NyLPC_MCU_LPC4088 3
+#define NyLPC_MCU_K64F    4
 
 #define NyLPC_MCU NyLPC_MCU_LPC17xx
 
@@ -120,17 +121,22 @@ extern "C" {
 //デバック情報
 ////////////////////////////////////////////////////////////////////////////////////////////////
 
-
 #define NyLPC_cHttpdThread_SIZE_OF_THREAD_STACK (1024+512)
-# define NyLPC_cHttpd_MAX_PERSISTENT_CONNECTION 1
+#define NyLPC_cHttpd_MAX_PERSISTENT_CONNECTION 1
 
 /*固有プラットフォーム設定はここに記述します。*/
 #undef NyLPC_ARCH
 #define NyLPC_ARCH NyLPC_ARCH_MBEDRTOS
 
 #ifdef TARGET_LPC4088
-#undef NyLPC_MCU
-#define NyLPC_MCU NyLPC_MCU_LPC4088
+#   undef NyLPC_MCU
+#   define NyLPC_MCU NyLPC_MCU_LPC4088
+#endif
+#ifdef TARGET_K64F
+#   undef NyLPC_MCU
+#   define NyLPC_MCU NyLPC_MCU_K64F
+#   define NyLPC_TTxBufferHeader_ALIGNMENT  16  //EthernetのTXメモリブロックヘッダを16バイトアラインメントにする
+#   define NyLPC_TcEthernetMM_BUF_PADDING   16  //2バイトでいいんだけど16バイトアライメントにするために16
 #endif
 
 #ifdef __cplusplus

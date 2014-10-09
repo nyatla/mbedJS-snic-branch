@@ -80,7 +80,7 @@ NetConfig::NetConfig(bool i_is_factory_default)
 
     //check mbed
     if(PlatformInfo::getPlatformType()==PlatformInfo::PF_MBED) {
-    	//mbedチップからMACアドレスを取得
+        //mbedチップからMACアドレスを取得
         if(!NyLPC_cMiMicConfiglation_hasUserConfigulation()) {
             //is 1st read?
             //mbed override

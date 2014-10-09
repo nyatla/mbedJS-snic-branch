@@ -17,7 +17,7 @@ extern "C" {
 
 /**
  * IPアドレスはネットワークオーダーで格納する。
- * 構造体は4バイトアライメントであること。
+ * 構造体は8バイトアライメントであること。
  */
 struct NyLPC_TMiMicConfigulation{
     /** ROM焼検出用。0xFFFFFFFFを書く　*/
@@ -27,7 +27,7 @@ struct NyLPC_TMiMicConfigulation{
     /** MACアドレスの下位4bit*/
     NyLPC_TUInt32   mac_00_01_02_03;
     /** MACアドレスの上位2bit*/
-    NyLPC_TUInt32   mac_04_05_xx_xx;
+    NyLPC_TUInt32   mac_04_05_xx_xx;    //12+NyLPC_TcNetConfig_HOSTNAME_LEN
     /*
      * IPv4設定
      */
@@ -40,7 +40,7 @@ struct NyLPC_TMiMicConfigulation{
     /** IPV4アドレス*/
     NyLPC_TUInt32   ipv4_addr_net;
     NyLPC_TUInt32   ipv4_mask_net;
-    NyLPC_TUInt32   ipv4_drut_net;
+    NyLPC_TUInt32   ipv4_drut_net;      //16
 
     /*
      * Service setting
@@ -52,9 +52,10 @@ struct NyLPC_TMiMicConfigulation{
      */
     NyLPC_TUInt32   srv_flags;
     /** HTTPポート番号*/
-    NyLPC_TUInt16   http_port;
-    NyLPC_TUInt16   padding;
-
+    NyLPC_TUInt16   http_port;          //6
+                                        //total=(34=(12+16+6)+NyLPC_TcNetConfig_HOSTNAME_LEN)
+    NyLPC_TUInt16   padding32;
+    NyLPC_TUInt32   padding64;          //total=40+NyLPC_TcNetConfig_HOSTNAME_LEN
 };
 
 /**

@@ -115,7 +115,7 @@ namespace MiMic
     }
     bool ModJsonRpc::putResult(unsigned int i_id)
     {
-    	return this->putResult(i_id,"");
+        return this->putResult(i_id,"");
     }
     bool ModJsonRpc::putResult(unsigned int i_id,const char* i_params_fmt,...)
     {
@@ -143,13 +143,13 @@ namespace MiMic
     }
     bool ModJsonRpc::removeObject(int i_id)
     {
-    	if(0<=i_id && i_id<NUM_OF_OBJECTS){
+        if(0<=i_id && i_id<NUM_OF_OBJECTS){
             if(this->_objects[i_id]!=NULL){
-            	delete this->_objects[i_id];
-            	this->_objects[i_id]=NULL;
-            	return true;
+                delete this->_objects[i_id];
+                this->_objects[i_id]=NULL;
+                return true;
             }
-    	}
+        }
         return false;
     }
     void* ModJsonRpc::getObject(int i_oid)

@@ -63,7 +63,6 @@
 
 
 
-
 /****************************************************
  * UipServiceに関する宣言:その他
  ***************************************************/
@@ -105,7 +104,7 @@ static void ethernet_handler(void* i_param,NyLPC_TiEthernetDevice_EVENT i_type);
 //--------------------------------------------------------------
 
 
-static NyLPC_TBool sendIPv4Tx(struct NyLPC_TTxBufferHeader* i_eth_buf);
+static NyLPC_TBool sendIPv4Tx(struct TEthPacket* i_eth_buf);
 
 //static void sendArpReqest(const struct TEthPacket* i_eth_packet);
 static void sendRawEthFrameNL(void* i_buf,NyLPC_TUInt16 i_len);
@@ -306,7 +305,7 @@ static int uipTask(void *pvParameters)
                     NyLPC_cMutex_unlock(&(inst->_mutex));
                     //IPパケットの処理
                     r=NyLPC_cIPv4_rx(&(inst->_tcpv4),&(ethbuf->data.ipv4),rx_len);
-                    if(r!=NULL){
+                    if(r!=NULL){                        
                         //IPパケットとして送信
                         NyLPC_cUipService_sendIPv4Tx(r);
                     }
@@ -381,7 +380,7 @@ static void ethernet_handler(void* i_param,NyLPC_TiEthernetDevice_EVENT i_type)
 void NyLPC_cUipService_sendArpRequest(const struct NyLPC_TIPv4Addr* i_addr)
 {
     NyLPC_TcUipService_t* inst=_NyLPC_TcUipService_inst;
-    struct NyLPC_TTxBufferHeader* p;
+    void* p;
     NyLPC_TUInt16 tx_len;
     struct TEthPacket* ethbuf;
     //システムTxBufを得る
@@ -390,7 +389,7 @@ void NyLPC_cUipService_sendArpRequest(const struct NyLPC_TIPv4Addr* i_addr)
     NyLPC_TArpHeader_setArpRequest(&(ethbuf->data.arp),inst->_ref_config->ip_addr,&(inst->_ref_config->eth_mac),i_addr);
     tx_len=NyLPC_TEthernetIIHeader_setArpTx(&(ethbuf->header),&(inst->_ref_config->eth_mac));
     //送信
-    p=((struct NyLPC_TTxBufferHeader*)(((struct NyLPC_TEthernetIIHeader*)ethbuf)-1))-1;
+    p=((struct NyLPC_TEthernetIIHeader*)ethbuf)-1;
 
     NyLPC_cMutex_lock(&(inst->_mutex));
     NyLPC_iEthernetDevice_sendTxEthFrame(inst->_ethif,p,tx_len);
@@ -404,17 +403,17 @@ void NyLPC_cUipService_sendArpRequest(const struct NyLPC_TIPv4Addr* i_addr)
 /**
  * allocTxBufで取得したペイロードメモリを"IPパケットとして"送信します。
  * @param i_eth_payload
- * [NyLPC_TTxBufferHeader][NyLPC_TEthernetIIHeader][payload]メモリの、[payload]のアドレスを指定します。
+ * [NyLPC_TEthernetIIHeader][payload]メモリの、[payload]のアドレスを指定します。
  * 通常は、NyLPC_cUipService_allocTxBufの返却したメモリを指定します。
  */
 
 void NyLPC_cUipService_sendIPv4Tx(void* i_eth_payload)
 {
     NyLPC_TcUipService_t* inst=_NyLPC_TcUipService_inst;
-    struct NyLPC_TTxBufferHeader* p=((struct NyLPC_TTxBufferHeader*)(((struct NyLPC_TEthernetIIHeader*)i_eth_payload)-1))-1;
+    void* p=((struct NyLPC_TEthernetIIHeader*)i_eth_payload)-1;
     NyLPC_cMutex_lock(&(inst->_mutex));
     //IPパケットの送信を試行
-    if(sendIPv4Tx(p)){
+    if(sendIPv4Tx((struct TEthPacket*)p)){
         NyLPC_cMutex_unlock(&(inst->_mutex));
         return;
     }
@@ -442,11 +441,11 @@ void* NyLPC_cUipService_allocSysTxBuf(void)
 {
     NyLPC_TUInt16 s;
     NyLPC_TcUipService_t* inst=_NyLPC_TcUipService_inst;
-    struct NyLPC_TTxBufferHeader* ethbuf;
+    struct TEthPacket* ethbuf;
     //排他処理をして、メモリを取得する。SYSTEMメモリはEthernetドライバの解放待ちのみなのでまとめてLOCKしておｋ
     NyLPC_cMutex_lock(&(inst->_mutex));
     for(;;){
-        ethbuf=(struct NyLPC_TTxBufferHeader*)NyLPC_iEthernetDevice_allocTxBuf(inst->_ethif,NyLPC_TcEthernetMM_HINT_CTRL_PACKET,&s);
+        ethbuf=(struct TEthPacket*)NyLPC_iEthernetDevice_allocTxBuf(inst->_ethif,NyLPC_TcEthernetMM_HINT_CTRL_PACKET,&s);
         if(ethbuf==NULL){
             NyLPC_cThread_yield();
             continue;
@@ -455,7 +454,7 @@ void* NyLPC_cUipService_allocSysTxBuf(void)
     }
     NyLPC_cMutex_unlock(&(inst->_mutex));
     //イーサネットバッファのアドレスを計算
-    return &(((struct TEthPacket*)(ethbuf+1))->data);
+    return &(ethbuf->data);
 }
 
 
@@ -463,10 +462,10 @@ void* NyLPC_cUipService_allocSysTxBuf(void)
 void* NyLPC_cUipService_allocTxBuf(NyLPC_TUInt16 i_hint,NyLPC_TUInt16* o_size)
 {
     NyLPC_TcUipService_t* inst=_NyLPC_TcUipService_inst;
-    struct NyLPC_TTxBufferHeader* ethbuf;
+    struct TEthPacket* ethbuf;
     //排他処理をして、メモリを取得する。
     NyLPC_cMutex_lock(&(inst->_mutex));
-    ethbuf=(struct NyLPC_TTxBufferHeader*)NyLPC_iEthernetDevice_allocTxBuf(inst->_ethif,i_hint+sizeof(struct NyLPC_TEthernetIIHeader),o_size);
+    ethbuf=(struct TEthPacket*)NyLPC_iEthernetDevice_allocTxBuf(inst->_ethif,i_hint+sizeof(struct NyLPC_TEthernetIIHeader),o_size);
     NyLPC_cMutex_unlock(&(inst->_mutex));
     if(ethbuf==NULL){
         return NULL;
@@ -474,7 +473,7 @@ void* NyLPC_cUipService_allocTxBuf(NyLPC_TUInt16 i_hint,NyLPC_TUInt16* o_size)
     //イーサネットバッファのサイズを計算
     *o_size-=sizeof(struct NyLPC_TEthernetIIHeader);
     //イーサネットバッファのアドレスを計算
-    return &(((struct TEthPacket*)(ethbuf+1))->data);
+    return &(ethbuf->data);
 }
 
 
@@ -484,7 +483,7 @@ void* NyLPC_cUipService_releaseTxBuf(void* i_buf)
     NyLPC_TcUipService_t* inst=_NyLPC_TcUipService_inst;
     NyLPC_cMutex_lock(&(inst->_mutex));
     //ペイロードの位置から、メモリブロックを再生。
-    NyLPC_iEthernetDevice_releaseTxBuf(inst->_ethif,((struct NyLPC_TTxBufferHeader*)(((struct NyLPC_TEthernetIIHeader*)i_buf)-1))-1);
+    NyLPC_iEthernetDevice_releaseTxBuf(inst->_ethif,((struct NyLPC_TEthernetIIHeader*)i_buf)-1);
     NyLPC_cMutex_unlock(&(inst->_mutex));
     return NULL;
 }
@@ -555,7 +554,7 @@ static void sendRawEthFrameNL(void* i_buf,NyLPC_TUInt16 i_len)
 {
     NyLPC_iEthernetDevice_sendTxEthFrame(
         _NyLPC_TcUipService_inst->_ethif,
-        ((struct NyLPC_TTxBufferHeader*)(((struct NyLPC_TEthernetIIHeader*)i_buf)-1))-1,
+        ((struct NyLPC_TEthernetIIHeader*)i_buf)-1,
         i_len);
     return;
 }
@@ -568,7 +567,7 @@ static void releaseTxBufNL(void* i_buf)
     //ペイロードの位置から、メモリブロックを再生。
     NyLPC_iEthernetDevice_releaseTxBuf(
         _NyLPC_TcUipService_inst->_ethif,
-        ((struct NyLPC_TTxBufferHeader*)(((struct NyLPC_TEthernetIIHeader*)i_buf)-1))-1);
+        ((struct NyLPC_TEthernetIIHeader*)i_buf)-1);
     return;
 }
 /**
@@ -593,34 +592,33 @@ static void ip2MulticastEmacAddr(const struct NyLPC_TIPv4Addr* i_addr,struct NyL
  * allocTxBufで確保したメモリを指定してください。
  * ペイロードには、TCP/IPパケットを格納します。
  */
-static NyLPC_TBool sendIPv4Tx(struct NyLPC_TTxBufferHeader* i_eth_buf)
+static NyLPC_TBool sendIPv4Tx(struct TEthPacket* i_eth_buf)
 {
     NyLPC_TcUipService_t* inst=_NyLPC_TcUipService_inst;
     struct NyLPC_TEthAddr emac;
     NyLPC_TUInt16 tx_len;
     const struct NyLPC_TEthAddr* eth_dest;
-    struct TEthPacket* ethbuf=(struct TEthPacket*)(i_eth_buf+1);
     //ペイロードのアドレスから、イーサネットフレームバッファのアドレスを復元
 
-    if(NyLPC_TIPv4Addr_isEqual(&(ethbuf->data.ipv4.destipaddr),&NyLPC_TIPv4Addr_BROADCAST)) {
+    if(NyLPC_TIPv4Addr_isEqual(&(i_eth_buf->data.ipv4.destipaddr),&NyLPC_TIPv4Addr_BROADCAST)) {
         //ブロードキャストならそのまま
         eth_dest=&NyLPC_TEthAddr_BROADCAST;
-    }else if(NyLPC_TIPv4Addr_isEqualWithMask(&(ethbuf->data.ipv4.destipaddr),&NyLPC_TIPv4Addr_MULTICAST,&NyLPC_TIPv4Addr_MULTICAST_MASK)){
+    }else if(NyLPC_TIPv4Addr_isEqualWithMask(&(i_eth_buf->data.ipv4.destipaddr),&NyLPC_TIPv4Addr_MULTICAST,&NyLPC_TIPv4Addr_MULTICAST_MASK)){
         //マルチキャスト
-        ip2MulticastEmacAddr(&(ethbuf->data.ipv4.destipaddr),&emac);
+        ip2MulticastEmacAddr(&(i_eth_buf->data.ipv4.destipaddr),&emac);
         eth_dest=&emac;
     }else{
         //LocalIP以外ならdefaultRootへ変換
         eth_dest=NyLPC_cIPv4Arp_IPv4toEthAddr(
             &inst->_arp,
-            NyLPC_cIPv4Config_isLocalIP(inst->_ref_config, &(ethbuf->data.ipv4.destipaddr))?(ethbuf->data.ipv4.destipaddr):(inst->_ref_config->dr_addr));
+            NyLPC_cIPv4Config_isLocalIP(inst->_ref_config, &(i_eth_buf->data.ipv4.destipaddr))?(i_eth_buf->data.ipv4.destipaddr):(inst->_ref_config->dr_addr));
         //IP->MAC変換をテスト。
         if(eth_dest==NULL){
             return NyLPC_TBool_FALSE;
         }
     }
     //変換可能なら、イーサネットヘッダを更新して、送信処理へ。
-    tx_len=NyLPC_TEthernetIIHeader_setIPv4Tx(&(ethbuf->header),&(inst->_ref_config->eth_mac),eth_dest);
+    tx_len=NyLPC_TEthernetIIHeader_setIPv4Tx(&(i_eth_buf->header),&(inst->_ref_config->eth_mac),eth_dest);
     NyLPC_iEthernetDevice_sendTxEthFrame(inst->_ethif,i_eth_buf,tx_len);
     return NyLPC_TBool_TRUE;
 }

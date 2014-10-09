@@ -39,10 +39,12 @@ data/mbed/jsonrpc/PortIn.cpp.i
 data/core/uip/NyLPC_cTcpListener.c.i
 data/mbed/ModBaseClass.h.i
 data/core/net/httpd/mod/NyLPC_cModRomFiles.c.i
+data/core/driver/ethernet/k64f/EthDev.c.i
 data/core/NyLPC_cStr.c.i
 data/core/http/NyLPC_cHttpdConfig.h.i
 data/uip/NyLPC_cUipService_protected.h.i
 data/os/NyLPC_cThread.h.i
+data/core/driver/flash/k64f/K64F_IAP.h.i
 data/core/mimicvm/NyLPC_cMiMicDbCompiler.c.i
 data/mbed/ModMiMicSetting.h.i
 data/core/mimicvm/NyLPC_cMiMicVM.c.i
@@ -64,10 +66,12 @@ data/core/mimicvm/NyLPC_mimicvm_utils.cpp.i
 data/core/driver/ethernet/lpc4088/EthDev.c.i
 data/core/http/NyLPC_cHttpShortRequestHeaderParser.cpp.i
 data/core/http/NyLPC_cHttpHeaderWriter.h.i
+data/core/driver/ethernet/k64f/EtherDev_K64F_protected.h.i
 data/core/http/NyLPC_cHttpBasicBodyParser.c.i
 data/core/net/httpd/mod/NyLPC_cModWebSocket.c.i
 data/core/net/httpd/mod/NyLPC_cMocMiMicSetting.cpp.i
 data/cpp/ModBaseClass.cpp.i
+data/mbed/jsonrpc/RpcMcu.cpp.i
 data/core/net/httpd/NyLPC_cHttpd_protected.h.i
 data/core/driver/uip/IEthernetDevice.h.i
 data/mbed/utils/PlatformInfo.cpp.i
@@ -94,6 +98,7 @@ data/mbed/mod/ModRomFiles.cpp.i
 data/mbed/mod/ModRomFiles.h.i
 data/mbed/ModFileIo.cpp.i
 data/core/NyLPC_stdlib.c.i
+data/mbed/jsonrpc/RpcI2CSlave.cpp.i
 data/mbed/mod/ModBaseClass.cpp.i
 data/core/uip/NyLPC_cIPv4IComp.c.i
 data/core/mimicvm/NyLPC_cMiMicTxtCompiler.c.i
@@ -137,6 +142,7 @@ data/core/uip/NyLPC_uip.cpp.i
 data/mbed/mod/ModUrl.cpp.i
 data/core/mimicvm/NyLPC_cMiMicVM.cpp.i
 data/core/net/httpd/mod/NyLPC_cModJsonRpc.h.i
+data/core/driver/flash/LPCxxx/NyLPC_cMiMicConfiglation_LPCxxx.c.i
 data/core/net/httpd/mod/NyLPC_cModShortUrl.cpp.i
 data/core/driver/uip/EtherDev_LAN8720.cpp.i
 data/core/http/NyLPC_cHttpBasicHeaderParser.h.i
@@ -156,6 +162,7 @@ data/cpp/ModUrl.h.i
 data/uip/NyLPC_cUipService.h.i
 data/core/net/httpd/mod/NyLPC_cHttpModUtils_protected.h.i
 data/mbed/TcpSocket.h.i
+data/core/driver/ethernet/k64f/EthDev_K64F.c.i
 data/core/utils/sha1/sha1.h.i
 data/core/net/upnp/NyLPC_cSsdpSocket.c.i
 data/core/net/httpd/mod/NyLPC_cModRemoteMcu.c.i
@@ -201,10 +208,13 @@ data/core/flash/NyLPC_cOnchipFlashWriter.c.i
 data/core/NyLPC_cPtrStream.h.i
 data/mbed/mod/ModLocalFileSystem.cpp.i
 data/core/net/httpd/NyLPC_cHttpdThread.cpp.i
+data/core/driver/ethernet/k64f/fsl/fsl_enet_driver.c.i
 data/mbed/jsonrpc/RpcSPI.cpp.i
 data/mbed/Net.cpp.i
 data/core/net/httpd/mod/NyLPC_cModUrl.c.i
+data/core/driver/ethernet/k64f/k64f_emac_config.h.i
 data/core/NyLPC_cRomPtrStream.c.i
+data/core/driver/flash/LPCxxx/LPC17xx_IAP.c.i
 data/cpp/ModRemoteMcu.cpp.i
 data/uip/NyLPC_cTcpSocket.h.i
 data/mbed/ModRemoteMcu.cpp.i
@@ -217,6 +227,7 @@ data/core/NyLPC_cRingBuffer.c.i
 data/core/http/NyLPC_cHttpStream.cpp.i
 data/core/net/httpd/mod/NyLPC_cModShortUrl.h.i
 data/driver/uip/EthDev.cpp.i
+data/mbed/jsonrpc/RpcSerial.cpp.i
 data/mbed/HttpClient.h.i
 data/uip/NyLPC_cIPv4Payload.h.i
 data/driver/uip/EtherDev_LAN8720.h.i
@@ -225,6 +236,7 @@ data/core/net/httpd/NyLPC_cHttpd.cpp.i
 data/mbed/ModUrl.cpp.i
 data/core/driver/ethernet/lpc17xx/EtherDev_DP83848C_protected.h.i
 data/cpp/ModMiMicSetting.cpp.i
+data/mbed/jsonrpc/RpcI2C.cpp.i
 data/os/mbedrtos/NyLPC_cStopwatch.cpp.i
 data/core/http/NyLPC_cMimeType.h.i
 data/core/utils/NyLPC_cFormatWriter.c.i
@@ -232,6 +244,7 @@ data/core/NyLPC_cFifoBuffer.h.i
 data/core/include/NyLPC_uipService.h.i
 data/core/uip/NyLPC_cIPv4Config.cpp.i
 data/mbed/mod/ModFileIo.cpp.i
+data/core/driver/flash/k64f/K64F_IAP.c.i
 data/uip/NyLPC_cIPv4IComp_protected.h.i
 data/core/utils/sha1/sha1.c.i
 data/cpp/mimic.h.i
@@ -260,8 +273,10 @@ data/core/driver/ethernet/lpc17xx/EthDev.c.i
 data/core/driver/ethernet/lpc17xx/EthDev_LPC17xx.c.i
 data/core/NyLPC_cStr.h.i
 data/mbed/ModRomFiles.cpp.i
+data/core/driver/flash/LPCxxx/LPC17xx_IAP.h.i
 data/core/net/dhcp/NyLPC_cDhcpClient.h.i
 data/core/os/NyLPC_cMutex.h.i
+data/mbed/jsonrpc/Target_K64F.cpp.i
 data/driver/uip/EtherDev_DP83848C.cpp.i
 data/core/uip/NyLPC_cIPv4.cpp.i
 data/core/uip/NyLPC_cIPv4.c.i
@@ -297,6 +312,7 @@ data/core/NyLPC_cPtrStream_protected.h.i
 data/driver/uip/EthDev_LPC17xx.cpp.i
 data/uip/NyLPC_cIPv4.cpp.i
 data/core/NyLPC_stdlib.cpp.i
+data/core/driver/flash/LPCxxx/NyLPC_cOnchipFlashWriter.c.i
 data/core/http/NyLPC_cHttpNullRequestHeaderParser.h.i
 data/uip/NyLPC_cIPv4Arp.cpp.i
 data/core/mimicvm/NyLPC_cMiMicTxtCompiler.h.i
@@ -312,6 +328,7 @@ data/NyLPC_cPtrTbl.h.i
 data/core/net/upnp/NyLPC_UPnP_types.h.i
 data/core/driver/uip/EtherDev_LAN8720.h.i
 data/mbed/jsonrpc/PortOut.cpp.i
+data/core/driver/flash/LPCxxx/NyLPC_cOnchipFlashWriter.h.i
 data/uip/NyLPC_uip.cpp.i
 data/core/utils/NyLPC_cFormatTextReader.c.i
 data/cpp/ModLocalFileSystem.cpp.i
@@ -383,11 +400,13 @@ data/core/utils/NyLPC_cUuid.h.i
 data/mbed/LocalFileSystem2.cpp.i
 data/core/http/NyLPC_cHttpStream.c.i
 data/core/NyLPC_cPtrTbl.h.i
+data/core/driver/ethernet/k64f/fsl/hardware_init_MK64F12.c.i
 data/core/include/NyLPC_os.h.i
 data/core/http/NyLPC_cHttpShortRequestHeaderParser.h.i
 data/mbed/NetConfig.h.i
 data/cpp/Httpd.h.i
 data/core/driver/uip/EtherDev_DP83848C.h.i
+data/core/driver/flash/k64f/NyLPC_cMiMicConfiglation_K64F.c.i
 data/os/NyLPC_cSemaphore.h.i
 data/core/uip/NyLPC_cIPv4Payload.h.i
 data/core/include/NyLPC_config.h.i

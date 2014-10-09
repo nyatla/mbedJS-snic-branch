@@ -7,7 +7,7 @@
 #include "cmsis.h"
 #include "mbed_interface.h"
 #include "toolchain.h"
-#include "error.h"
+//#include "error.h"
 
 #define NUM_RX_FRAG         3           /* Num.of RX Fragments. */
 #define NUM_TX_FRAG         16           /* Num.of TX Fragments. */

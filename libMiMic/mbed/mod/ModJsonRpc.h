@@ -21,10 +21,10 @@ namespace MiMic
     class ModJsonRpc:ModBaseClass
     {
     public:
-    	typedef struct TcJsonRpcEx{
-    		NyLPC_TcModJsonRpc_t super;
-    		ModJsonRpc* cppmod_ptr;
-    	}TcJsonRpcEx_t;
+        typedef struct TcJsonRpcEx{
+            NyLPC_TcModJsonRpc_t super;
+            ModJsonRpc* cppmod_ptr;
+        }TcJsonRpcEx_t;
     public:
         class BasicRpcObject
         {

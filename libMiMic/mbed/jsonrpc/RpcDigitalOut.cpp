@@ -45,7 +45,7 @@ namespace MiMic
         static NyLPC_TBool read(const union NyLPC_TJsonRpcParserResult* i_rpc,void* i_param)
         {
             //d return d
-        	ModJsonRpc* mod=((ModJsonRpc::TcJsonRpcEx_t*)i_param)->cppmod_ptr;
+            ModJsonRpc* mod=((ModJsonRpc::TcJsonRpcEx_t*)i_param)->cppmod_ptr;
             DigitalOut* inst=(DigitalOut*)getObjectBatch(mod,i_rpc);
             if(inst!=NULL){
                 mod->putResult(i_rpc->method.id,"%d",(int)(inst->read()));

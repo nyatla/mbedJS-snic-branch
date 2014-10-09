@@ -320,7 +320,7 @@ typedef struct {                        /* TX Status struct                  */
 
 
 void EthDev_LPC17xx_processTx(void);
-void EthDev_LPC17xx_sendTxEthFrame(struct NyLPC_TTxBufferHeader* i_buf,unsigned short i_size);
+void EthDev_LPC17xx_sendTxEthFrame(void* i_buf,unsigned short i_size);
 void* EthDev_LPC17xx_getRxEthFrame(unsigned short* o_len_of_data);
 void EthDev_LPC17xx_nextRxEthFrame(void);
 

@@ -1,6 +1,8 @@
+#include "NyLPC_config.h"
+#if NyLPC_MCU==NyLPC_MCU_LPC4088 || NyLPC_MCU==NyLPC_MCU_LPC17xx
 #include "NyLPC_flash.h"
 #include "NyLPC_http.h"
-#include "NyLPC_cMiMicConfiglation.h"
+#include "NyLPC_cOnchipFlashWriter.h"
 #include "NyLPC_net.h"
 /**
  * Onchip flashを使ったコンフィギュレーション保存システムです。
@@ -100,3 +102,4 @@ NyLPC_TBool NyLPC_cMiMicConfiglation_hasUserConfigulation(void)
 }
 
 
+#endif

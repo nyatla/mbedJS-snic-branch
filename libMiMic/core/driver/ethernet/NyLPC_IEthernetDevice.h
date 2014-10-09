@@ -1,7 +1,7 @@
 /*
  * NyLPC_IEthernetDevice.h
  *
- *  Created on: 2011/12/06
+ *  Created: 2011/12/06
  * MiMicのイーサネットドライバインタフェイスを定義する。
  */
 #ifndef NyLPC_IEthernetDevice_h
@@ -12,6 +12,8 @@
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
+
+
 
 typedef struct NyLPC_TiEthernetDevice NyLPC_TiEthernetDevice_t;
 
@@ -28,24 +30,6 @@ typedef unsigned int NyLPC_TiEthernetDevice_EVENT;
 #define NyLPC_TcEthernetMM_HINT_CTRL_PACKET 0
 
 typedef void (*NyLPC_TiEthernetDevice_onEvent)(void* i_param,NyLPC_TiEthernetDevice_EVENT i_type);
-
-/**
- * 送信バッフメモリのヘッダ。
- * この構造体は、TXバッファメモリブロックのヘッダーです。
- * TXバッファメモリブロックは、この構造体の後ろに、sizeに一致したメモリを連結したもので表現します。
- * <pre>
- * buffer=[struct NyLPC_TTxBufferHeader][n]
- * </pre>
- */
-struct NyLPC_TTxBufferHeader
-{
-	//メモリブロックの参照カウンタ。
-	NyLPC_TInt8  ref;
-	//送信用にロックしたかを示すフラグ
-	NyLPC_TUInt8 is_lock;
-	//32ビット境界に合わせるためのパディング。
-	NyLPC_TUInt16 padding;
-};
 
 
 
@@ -82,7 +66,7 @@ typedef void (*NyLPC_TiEthernetDevice_nextRxEthFrame)(void);
  * 割り当てたメモリブロックのヘッダ。
  */
 #define NyLPC_iEthernetDevice_allocTxBuf(i,h,s) (i)->allocTxBuf((h),(s))
-typedef struct NyLPC_TTxBufferHeader* (*NyLPC_TiEthernetDevice_allocTxBuf)(NyLPC_TUInt16 i_hint,NyLPC_TUInt16* o_size);
+typedef void* (*NyLPC_TiEthernetDevice_allocTxBuf)(NyLPC_TUInt16 i_hint,NyLPC_TUInt16* o_size);
 
 
 /**
@@ -90,7 +74,7 @@ typedef struct NyLPC_TTxBufferHeader* (*NyLPC_TiEthernetDevice_allocTxBuf)(NyLPC
  * 関数は、メモリブロックの参照カウンタを1減算する。
  */
 #define NyLPC_iEthernetDevice_releaseTxBuf(i,b) (i)->releaseTxBuf(b)
-typedef void (*NyLPC_TiEthernetDevice_releaseTxBuf)(struct NyLPC_TTxBufferHeader* i_buf);
+typedef void (*NyLPC_TiEthernetDevice_releaseTxBuf)(void* i_buf);
 
 
 
@@ -99,12 +83,11 @@ typedef void (*NyLPC_TiEthernetDevice_releaseTxBuf)(struct NyLPC_TTxBufferHeader
  * @param i_buf
  * allocTxBufで得たメモリか、初期化したNyLPC_TTxBufferHeaderメモリブロックを指定する。
  * 送信が終わるまでの間、メモリを開放してはならない。
- * #外部で確保したメモリについては、利用不能なケースがあるかもしれない。現在のMiMicでは、使用できることを前提としている。
  * @oaram i_size
  * i_bufの後ろに連結されているデータメモリの長さ
  */
 #define NyLPC_iEthernetDevice_sendTxEthFrame(i,b,s) (i)->sendTxEthFrame((b),(s))
-typedef void (*NyLPC_TiEthernetDevice_sendTxEthFrame)(struct NyLPC_TTxBufferHeader* i_buf,unsigned short i_size);
+typedef void (*NyLPC_TiEthernetDevice_sendTxEthFrame)(void* i_buf,unsigned short i_size);
 
 
 /**

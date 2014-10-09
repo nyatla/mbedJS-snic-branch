@@ -123,8 +123,8 @@ static long prvSetupLinkStatus( void );
 
 static NyLPC_TBool start(const struct NyLPC_TEthAddr* i_eth_addr,NyLPC_TiEthernetDevice_onEvent i_handler,void* i_param);
 static void stop(void);
-static struct NyLPC_TTxBufferHeader* allocTxBuf(NyLPC_TUInt16 i_hint,NyLPC_TUInt16* o_size);
-static void releaseTxBuf(struct NyLPC_TTxBufferHeader* i_buf);
+static void* allocTxBuf(NyLPC_TUInt16 i_hint,NyLPC_TUInt16* o_size);
+static void releaseTxBuf(void* i_buf);
 
 /** EMAC ISRハンドラ*/
 static void emacIsrHandler(unsigned long i_status);
@@ -245,11 +245,11 @@ static void stop(void)
 }
 
 
-static struct NyLPC_TTxBufferHeader* allocTxBuf(NyLPC_TUInt16 i_hint,NyLPC_TUInt16* o_size)
+static void* allocTxBuf(NyLPC_TUInt16 i_hint,NyLPC_TUInt16* o_size)
 {
 	return NyLPC_cEthernetMM_alloc(i_hint,o_size);
 }
-static void releaseTxBuf(struct NyLPC_TTxBufferHeader* i_buf)
+static void releaseTxBuf(void* i_buf)
 {
 	NyLPC_cEthernetMM_release(i_buf);
 }

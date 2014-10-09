@@ -4,9 +4,10 @@
  *  Created on: 2011/10/17
  *      Author: nyatla
  */
+#include "NyLPC_config.h"
+#if NyLPC_MCU==NyLPC_MCU_LPC4088 || NyLPC_MCU==NyLPC_MCU_LPC17xx
 
 #include "LPC17xx_IAP.h"
-
 /**
  * IPAに通知するCPUクロック。
  * ここで指定したクロック以上で動作させないでください。
@@ -122,3 +123,4 @@ unsigned long LPC17xx_IAP_erase(unsigned long i_start,unsigned long i_end)
     memcpy((void*)0x10000000,b,32);
     return r[0];
 }
+#endif

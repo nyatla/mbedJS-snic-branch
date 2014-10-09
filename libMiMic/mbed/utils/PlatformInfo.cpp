@@ -7,15 +7,24 @@
 namespace MiMic
 {
     int PlatformInfo::_pftype=PF_UNKNOWN;
+#if PlatformInfo_DETECTION_MODE==PlatformInfo_DETECTION_MODE_MBED
     void PlatformInfo::check()
     {
-    #if PlatformInfo_DETECTION_MODE==PlatformInfo_DETECTION_MODE_MBED
         _pftype=PF_MBED;
         return;
-    #elif PlatformInfo_DETECTION_MODE==PlatformInfo_DETECTION_MODE_LPCXPRESSO
+    }
+#elif PlatformInfo_DETECTION_MODE==PlatformInfo_DETECTION_MODE_LPCXPRESSO
+    void PlatformInfo::check()
+    {
         _pftype=PF_LPCXPRESSO;
         return;
-    #elif PlatformInfo_DETECTION_MODE==PlatformInfo_DETECTION_MODE_AUTO
+    }
+#elif PlatformInfo_DETECTION_MODE==PlatformInfo_DETECTION_MODE_AUTO    
+    void PlatformInfo::check()
+    {
+#   ifdef TARGET_K64F
+        _pftype=PF_MBED;        
+#   else
         //LPCXpresso is return S_RESET_ST==1 when standalone.
         wait_ms(200);
         unsigned int v;
@@ -34,10 +43,12 @@ namespace MiMic
         }
         _pftype=PF_LPCXPRESSO;
         return;
-    #else
-        #error "ERROR!"
-    #endif
+#   endif        
     }
+#else
+    #error "ERROR!"
+#endif
+    
     int PlatformInfo::getPlatformType()
     {
         if(_pftype==PF_UNKNOWN){

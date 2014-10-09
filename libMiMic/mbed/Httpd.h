@@ -57,7 +57,7 @@ namespace MiMic
         const static int SIZE_OF_HTTP_BUF=512;
         /**
          * This buffer is a shared buffer for HTTPD modules.
-         * It will be use for temporary buffer or work memory.
+         * It will be use for temporary buffer or work memory. 
          * Must lock before using.
          */
         static char _shared_buf[SIZE_OF_HTTP_BUF];

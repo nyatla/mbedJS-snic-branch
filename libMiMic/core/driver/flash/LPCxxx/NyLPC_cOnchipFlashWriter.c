@@ -1,4 +1,6 @@
-#include "../driver/flash/LPC17xx_IAP.h"
+#include "NyLPC_config.h"
+#if NyLPC_MCU==NyLPC_MCU_LPC4088 || NyLPC_MCU==NyLPC_MCU_LPC17xx
+#include "LPC17xx_IAP.h"
 #include "NyLPC_cOnchipFlashWriter.h"
 
 
@@ -125,4 +127,5 @@ void loop(void)
     //ここにメインタスクを書きます。
     for(;;){}
 }
+#endif
 #endif

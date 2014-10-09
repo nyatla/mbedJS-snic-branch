@@ -47,6 +47,8 @@ void NyLPC_cIsr_setEnetISR(NyLPC_cIsr_EventHandler i_handler)
     _eth_irs=i_handler;
 }
 
+//LPC176xとLPC4088の場合
+#if NyLPC_MCU==NyLPC_MCU_LPC4088 || NyLPC_MCU==NyLPC_MCU_LPC17xx
 /**
  * 割込み解除を通知するセマフォ。lEMACInitで設定する。
  */
@@ -59,6 +61,10 @@ extern "C" void ENET_IRQHandler(void)
     if(_eth_irs!=NULL){
         _eth_irs(ulStatus);
     }
-
 }
+#elif NyLPC_MCU==NyLPC_MCU_K64F
+//F64Fのイーサネットハンドラはドライバに書いてあります。
+#else
+#error "BAD MCU"
+#endif
 #endif

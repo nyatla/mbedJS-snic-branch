@@ -124,6 +124,52 @@ namespace MiMic
 			}
         	return NyLPC_TBool_TRUE;
         }
+        /**
+         * for binary array
+         */
+        static NyLPC_TBool puts_2(const union NyLPC_TJsonRpcParserResult* i_rpc,void* i_param)
+        {
+        	//dB return d
+            ModJsonRpc* mod=((ModJsonRpc::TcJsonRpcEx_t*)i_param)->cppmod_ptr;
+            Serial* inst=(Serial*)getObjectBatch(mod,i_rpc);
+			if(inst!=NULL){
+				const unsigned char* data;
+				unsigned char len;
+        		if(getParamByteArray(mod,i_rpc,data,len,1)){
+        			for(int i=0;i<len;i++){
+		        		inst->putc(data[i]);
+		        	}
+	        		mod->putResult(i_rpc->method.id,"%d",len);
+				}
+			}
+			return NyLPC_TBool_TRUE;
+        }
+        /**
+         * for binary array
+         */
+        static NyLPC_TBool gets_2(const union NyLPC_TJsonRpcParserResult* i_rpc,void* i_param)
+        {
+        	//ds return B
+            ModJsonRpc* mod=((ModJsonRpc::TcJsonRpcEx_t*)i_param)->cppmod_ptr;
+            Serial* inst=(Serial*)getObjectBatch(mod,i_rpc);
+			if(inst!=NULL){
+				unsigned char l;
+	        	if(getParamByte(mod,i_rpc,l,1)){
+	        		unsigned char* b=new unsigned char[l];
+	        		int i=0;
+	        		for(;;){
+	        			*(b+i)=(unsigned char)(inst->getc());
+	        			i++;
+	        			if(i>=l){
+	        				break;
+	        			}
+	        		};
+	        		mod->putResult(i_rpc->method.id,"\"%.*B\"",l,b);
+	        		delete[] b;
+				}
+			}
+			return NyLPC_TBool_TRUE;
+        }
 	};
 
 
@@ -140,6 +186,8 @@ namespace MiMic
 		{ "getc"		,"d"	,SerialHandler::getc},
 		{ "gets"		,"db"	,SerialHandler::gets},
 		{ "baud"		,"dd"	,SerialHandler::baud},
+		{ "gets_2"		,"db"	,SerialHandler::gets_2},
+		{ "puts_2"		,"dB"	,SerialHandler::puts_2},
 		{ NULL      ,NULL   ,NULL}
 	};
 
@@ -150,3 +198,4 @@ namespace MiMic
 
 
 }
+

@@ -14,6 +14,7 @@ SDFileSystem sd(p5, p6, p7, p8,"sd");
 Net* net;
 
 
+static int memory_size=0;
 /**
  * MiMic RemoteMCU httpd.<br/>
  * <p>Service list</p>
@@ -27,9 +28,8 @@ Net* net;
 class MiMicRemoteMcu:public MiMic::Httpd
 {
 private:
-    ModRomFiles modromfs; //ROM file module
+//    ModRomFiles modromfs; //ROM file module
     ModMiMicSetting mimicsetting; //mimic setting API
-    ModRemoteMcu remotemcu; // remotemcu API
     ModLocalFileSystem modlocal; //FileSystem mounter
     ModLocalFileSystem modsd; //FileSystem mounter
     ModFileIo modfio;   //fileupload API
@@ -38,9 +38,8 @@ private:
 public:
     MiMicRemoteMcu(NetConfig& i_cfg):Httpd(i_cfg.getHttpPort())
     {
-        this->modromfs.setParam("rom",RMCU_FSDATA,18);
+//        this->modromfs.setParam("rom",RMCU_FSDATA,0);
         this->mimicsetting.setParam("setup");
-        this->remotemcu.setParam("mvm");
         this->modlocal.setParam("local");
         this->modsd.setParam("sd",ModLocalFileSystem::FST_SDFATFS);
         this->modfio.setParam("fio");
@@ -52,20 +51,25 @@ public:
      */
     virtual void onRequest(HttpdConnection& i_connection)
     {
+		for(int i=0;i<10000;i+=4){
+			void* m=malloc(i);
+			if(m){
+				free(m);
+			}else{
+				memory_size=i;
+				break;
+			}
+		}
         //pause persistent mode if websocket ready.
         if(this->modrpc.isStarted()){
             i_connection.breakPersistentConnection();
         }
         //try to ModRomFS module.
-        if(this->modromfs.execute(i_connection)){
-            return;
-        }
+//        if(this->modromfs.execute(i_connection)){
+//            return;
+//        }
         //try to ModMiMicSetting module.
         if(this->mimicsetting.execute(i_connection)){
-            return;
-        }
-        //try to ModRemoteMcu module.
-        if(this->remotemcu.execute(i_connection)){
             return;
         }
         //try to ModLocalFileSystem
@@ -98,16 +102,25 @@ public:
     }
 };
 
-
 NetConfig cfg; //create network configulation  with onchip-setting.
 int main()
 {
+	for(int i=0;i<10000;i+=4){
+		void* m=malloc(i);
+		if(m){
+			free(m);
+		}else{
+			memory_size=i;
+			break;
+		}
+	}
     net=new Net();//Net constructor must be created after started RTOS
     //Prepare configulation.
     cfg.setUPnPIcon(64,64,8,"image/png","/rom/icon.png");
     cfg.setUPnPUdn(0xe29f7101,0x4ba2,0x01e0,0);
-    cfg.setFriendlyName("MiMicRemoteMCU");
+    cfg.setFriendlyName("mbedJS");
     cfg.setUPnPPresentationURL("/rom/index.html");
+    cfg.setIpAddr(192,168,128,39);
 
     //try to override setting by local file.
     if(!cfg.loadFromFile("/local/mimic.cfg")){
@@ -117,6 +130,15 @@ int main()
     
     MiMicRemoteMcu httpd(cfg); //create a httpd instance.
     net->start(cfg);
+	for(int i=0;i<10000;i+=4){
+		void* m=malloc(i);
+		if(m){
+			free(m);
+		}else{
+			memory_size=i;
+			break;
+		}
+	}
     httpd.loop();  //start httpd loop.
     return 0;
 }

@@ -136,3 +136,4 @@ namespace MiMic
 		"mbedJS","I2C",func_table
 	};
 }
+

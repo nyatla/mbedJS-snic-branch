@@ -476,7 +476,8 @@ static void setup_proc(NyLPC_TcHttpdConnection_t* i_connection,struct TModMiMicS
 //          cfg_image.srv_flags =i_req->content.setup.param_buf[6];
 //          strcpy(cfg_image.hostname,i_req->content.setup.host_name);
             i_req->content.setup.memimg.http_port =(NyLPC_TUInt16)(i_req->content.setup.tmp.param_buf[7]>>16);
-            i_req->content.setup.memimg.padding=0xffff;
+            i_req->content.setup.memimg.padding32=0xffff;
+            i_req->content.setup.memimg.padding64=0xffffffff;
             //一応確認。
             if(i_req->content.setup.memimg.http_port==0){
                 NyLPC_cHttpdUtils_sendErrorResponse(i_connection,500);

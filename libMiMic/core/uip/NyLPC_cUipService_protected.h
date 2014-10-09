@@ -58,12 +58,6 @@ struct NyLPC_TcUipService
     /** (Ethernetメモリ排他制御用)*/
     NyLPC_TcMutex_t _mutex;
     const struct TiEthernetDevice* _ethif;
-//  /**　ipタスクが使う小サイズ送信バッファ*/
-//  struct
-//  {
-//      struct NyLPC_TTxBufferHeader h;
-//      NyLPC_TUInt8 buf[NyLPC_TcUipService_SIZE_OF_REPLY_BUF];
-//  }stx;
 };
 
 

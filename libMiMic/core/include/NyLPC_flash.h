@@ -30,7 +30,6 @@
 #ifndef NyLPC_flash_h
 #define NyLPC_flash_h
 #include "NyLPC_stdlib.h"
-#include "../flash/NyLPC_cOnchipFlashWriter.h"
 #include "../flash/NyLPC_cMiMicConfiglation.h"
 #ifdef __cplusplus
 extern "C" {

@@ -58,7 +58,7 @@ namespace MiMic
 				NyLPC_cMiMicEnv_getStrProperty(NyLPC_cMiMicEnv_SHORT_NAME),
 				NyLPC_cMiMicEnv_getStrProperty(NyLPC_cMiMicEnv_ETHERNET_PHY),
 				NyLPC_cMiMicEnv_getStrProperty(NyLPC_cMiMicEnv_MCU_NAME),
-				getFreeMemory());
+				/*getFreeMemory()*/-1);
             return NyLPC_TBool_TRUE;
         }
     };
@@ -77,3 +77,4 @@ const struct NyLPC_TJsonRpcClassDef MbedJsApi::RPC_MBED_MCU={
 
 
 }
+
