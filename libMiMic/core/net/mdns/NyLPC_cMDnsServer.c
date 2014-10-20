@@ -37,7 +37,7 @@
 #define MDNS_MCAST_PORT         5353
 static const struct NyLPC_TIPv4Addr MDNS_MCAST_IPADDR=NyLPC_TIPv4Addr_pack(224,0,0,251);
 #define TIMEOUT_IN_MS       1000
-#define NyLPC_TcMDns_TTL 120
+#define NyLPC_TcMDns_TTL (30*60)	//30min
 
 
 struct NyLPC_TDnsHeader
@@ -153,23 +153,33 @@ static NyLPC_TUInt16 getNumberOfQuestion(const void* i_packet,NyLPC_TUInt16 i_le
     return NyLPC_ntohs(ptr->qd);
 }
 
+/**
+ * @return Questionのqnameの長さ
+ */
 static NyLPC_TInt16 NyLPC_TDnsQuestion_parse(const void* i_qpacket,NyLPC_TUInt16 i_len,struct NyLPC_TDnsQuestion* o_val)
 {
     NyLPC_TUInt16 l;
     NyLPC_TUInt16 i;
     const char* p=(const char*)i_qpacket;
     //QNameのパース'0終端'
-    l=i_len-4-1;//スキャン長はパケットサイズ-5まで
+    l=i_len-4;//スキャン長はパケットサイズ-4まで
     for(i=0;i<l;i++){
-        if(*(p+i)==0){
+    	switch(*(p+i)){
+    	case 0:
             l=i+1;//NULL終端を加味した文字列長
-            o_val->qname=p;
-            p+=l;
-            o_val->qtype=NyLPC_ntohs(*(NyLPC_TUInt16*)p);
-            o_val->qclass=NyLPC_ntohs(*(NyLPC_TUInt16*)(p+sizeof(NyLPC_TUInt16)));
-            //OK
-            return l+4;
+            break;
+    	case 0xc0:
+            l=i+2;//終端+2
+            break;
+    	default:
+    		continue;
         }
+        o_val->qname=p;
+        p+=l;
+        o_val->qtype=NyLPC_ntohs(*(NyLPC_TUInt16*)p);
+        o_val->qclass=NyLPC_ntohs(*(NyLPC_TUInt16*)(p+sizeof(NyLPC_TUInt16)));
+		return l+4;
+
     }
     return 0;
 }
@@ -208,6 +218,17 @@ inline static NyLPC_TBool isEqualName(const char* record,const char* question)
         }
         m++;
     }
+}
+static NyLPC_TInt16 qnameLen(const char* i_str)
+{
+	NyLPC_TInt16 i=0;
+	for(;;){
+		switch(*(i_str+i)){
+		case 0x00:return i;
+		case 0xc0:return i+1;
+		}
+	}
+	return 0;
 }
 /**
  * DNSレコードのPRTフィールドとDNSラベル文字列を比較する。
@@ -342,7 +363,9 @@ inline static NyLPC_TInt16 writeARecord(char* obuf,NyLPC_TInt16 obuflen,const Ny
     (*(NyLPC_TUInt32*)(obuf+ret+2))=ip->v;
     return ret+8;
 }
-static NyLPC_TInt16 writeSdPtrRecord(const char* i_qname,const struct NyLPC_TMDnsServiceRecord* i_srvlec,char* obuf,NyLPC_TInt16 obuflen)
+
+
+static NyLPC_TInt16 writeSdPtrRecord(const char* i_qname,const struct NyLPC_TMDnsServiceRecord* i_srvlec,char* obuf,NyLPC_TInt16 obuflen,struct TLabelCache* i_ca)
 {
     NyLPC_TInt16 l,s;
     //Header
@@ -353,6 +376,7 @@ static NyLPC_TInt16 writeSdPtrRecord(const char* i_qname,const struct NyLPC_TMDn
     }
     //Header書込み
     memcpy(obuf,i_qname,s);
+    s=TLabelCache_compress(i_ca,obuf);
     (*(NyLPC_TUInt16*)(obuf+s))=NyLPC_HTONS(NyLPC_TDnsQuestion_QTYPR_PTR);
     (*(NyLPC_TUInt16*)(obuf+s+2))=NyLPC_HTONS(NyLPC_TDnsQuestion_QCLASS_IN);
     (*(NyLPC_TUInt32*)(obuf+s+4))=NyLPC_HTONL(NyLPC_TcMDns_TTL);
@@ -365,9 +389,10 @@ static NyLPC_TInt16 writeSdPtrRecord(const char* i_qname,const struct NyLPC_TMDn
     }
     (*(NyLPC_TUInt16*)(obuf+l))=NyLPC_ntohs(s);
     l+=2;
-    l+=str2label(obuf+l,i_srvlec->protocol)-1;
-    l+=str2label(obuf+l,"local");
-    return l;
+    s=str2label(obuf+l,i_srvlec->protocol)-1;
+    s+=str2label(obuf+s+l,"local");
+    s=TLabelCache_compress(i_ca,obuf+l);//圧縮
+    return l+s;
 }
 static NyLPC_TInt16 writePtrRecord(const struct NyLPC_TDnsRecord* i_recode,NyLPC_TInt16 i_sid,char* obuf,NyLPC_TInt16 obuflen,struct TLabelCache* i_ca)
 {
@@ -502,6 +527,7 @@ ERROR:
 }
 
 
+
 static void sendReply2(NyLPC_TcMDnsServer_t* i_inst,const struct NyLPC_TDnsHeader* i_dns_header,const struct NyLPC_TDnsQuestion* q)
 {
     NyLPC_TInt16 ptr_recode;
@@ -570,7 +596,7 @@ static void sendReply2(NyLPC_TcMDnsServer_t* i_inst,const struct NyLPC_TDnsHeade
             }
             l=setResponseHeader(obuf,i_dns_header,i_inst->_ref_record->num_of_srv,0,0);
             for(i2=0;i2<i_inst->_ref_record->num_of_srv;i2++){
-                s=writeSdPtrRecord(q->qname,&(i_inst->_ref_record->srv[i2]),obuf+l,obuflen-l);
+                s=writeSdPtrRecord(q->qname,&(i_inst->_ref_record->srv[i2]),obuf+l,obuflen-l,&cache);
                 if(s<=0){
                     NyLPC_OnErrorGoto(ERROR);
                 }
@@ -690,7 +716,7 @@ static void onPeriodic(NyLPC_TcUdpSocket_t* i_inst)
         //アナウンス
         sendAnnounse(((NyLPC_TcMDnsServer_t*)i_inst));
         //TTL(msec)*1000*80%
-        NyLPC_cStopwatch_startExpire((&((NyLPC_TcMDnsServer_t*)i_inst)->_periodic_sw),NyLPC_TcMDns_TTL*5000/4);
+        NyLPC_cStopwatch_startExpire((&((NyLPC_TcMDnsServer_t*)i_inst)->_periodic_sw),NyLPC_TcMDns_TTL*1000/2);
     }
 }
 
