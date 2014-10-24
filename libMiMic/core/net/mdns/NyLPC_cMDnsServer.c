@@ -61,10 +61,13 @@ struct NyLPC_TDnsHeader
 
 struct NyLPC_TDnsQuestion
 {
-    const char* qname;
-    NyLPC_TUInt16 qtype;
-    NyLPC_TUInt16 qclass;
+	const char* buf;		//Questionパケットの先頭
+	NyLPC_TUInt16 buf_len;	//パケット長さ
+	NyLPC_TUInt16 qtype;
+	NyLPC_TUInt16 qclass;
+	NyLPC_TInt16 qname_pos;//Qnameの開始位置
 };
+
 #define NyLPC_TDnsQuestion_QTYPR_A      1
 #define NyLPC_TDnsQuestion_QTYPR_NS     2
 #define NyLPC_TDnsQuestion_QTYPR_CNAME  5
@@ -133,138 +136,162 @@ static NyLPC_TInt16 TLabelCache_compress(struct TLabelCache* i_struct,NyLPC_TCha
  * 受領可能なQuestionの数
  *
  */
-static NyLPC_TUInt16 getNumberOfQuestion(const void* i_packet,NyLPC_TUInt16 i_len)
+static NyLPC_TUInt16 getNumberOfQuestion(const void* i_packet, NyLPC_TUInt16 i_len)
 {
-    struct NyLPC_TDnsHeader* ptr=(struct NyLPC_TDnsHeader*)i_packet;
-    NyLPC_TUInt16 t;
-    if(i_len<12){
-        return NyLPC_TBool_FALSE;
-    }
-    //questrionの確認
-    //QR==0 && op==0 && tc=0
-    t=NyLPC_ntohs(ptr->flag);
-    if( ((t & NyLPC_TDnsHeader_FLAG_MASK_QR)!=0) &&
-        ((t & NyLPC_TDnsHeader_FLAG_MASK_OPCODE)!=0) &&
-        ((t & NyLPC_TDnsHeader_FLAG_MASK_TC)!=0))
-    {
-        //this is response
-        return 0;
-    }
-    return NyLPC_ntohs(ptr->qd);
+	struct NyLPC_TDnsHeader* ptr = (struct NyLPC_TDnsHeader*)i_packet;
+	NyLPC_TUInt16 t;
+	if (i_len<sizeof(struct NyLPC_TDnsHeader)){
+		return NyLPC_TBool_FALSE;
+	}
+	//questrionの確認
+	//QR==0 && op==0 && tc=0
+	t = NyLPC_ntohs(ptr->flag);
+	if (((t & NyLPC_TDnsHeader_FLAG_MASK_QR) != 0) &&
+		((t & NyLPC_TDnsHeader_FLAG_MASK_OPCODE) != 0) &&
+		((t & NyLPC_TDnsHeader_FLAG_MASK_TC) != 0))
+	{
+		//this is response
+		return 0;
+	}
+	return NyLPC_ntohs(ptr->qd);
 }
-
 /**
- * @return Questionのqnameの長さ
+ * nameフィールドの文字列圧縮を解除して圧縮後のテキストポインタを返します。
  */
-static NyLPC_TInt16 NyLPC_TDnsQuestion_parse(const void* i_qpacket,NyLPC_TUInt16 i_len,struct NyLPC_TDnsQuestion* o_val)
+static const char* getExtractNamePos(const char* i_packet_buf, const char* i_spos)
 {
-    NyLPC_TUInt16 l;
-    NyLPC_TUInt16 i;
-    const char* p=(const char*)i_qpacket;
-    //QNameのパース'0終端'
-    l=i_len-4;//スキャン長はパケットサイズ-4まで
-    for(i=0;i<l;i++){
-    	switch(*(p+i)){
-    	case 0:
-            l=i+1;//NULL終端を加味した文字列長
-            break;
-    	case 0xc0:
-            l=i+2;//終端+2
-            break;
-    	default:
-    		continue;
-        }
-        o_val->qname=p;
-        p+=l;
-        o_val->qtype=NyLPC_ntohs(*(NyLPC_TUInt16*)p);
-        o_val->qclass=NyLPC_ntohs(*(NyLPC_TUInt16*)(p+sizeof(NyLPC_TUInt16)));
-		return l+4;
-
-    }
-    return 0;
-}
-
-/**
- * .区切りラベル文字列とDNSラベル文字列を比較する。
- * @param record
- * .区切りのドメイン名
- * @param question
- * QuestionName文字列
- */
-inline static NyLPC_TBool isEqualName(const char* record,const char* question)
-{
-    char s;
-    const char* q=question;
-    const char* m=record;
-    for(;;){
-        if(*m=='\0'){
-            //questionは最後のフラグメントが残るはず
-            return memcmp(q,"\5local\0",7)==0;
-        }
-        s=*q;
-        switch(*q)
-        {
-        case 0x00:
-            return NyLPC_TBool_FALSE;
-        case 0xc0:
-            return NyLPC_TBool_FALSE;//offset
-        default:
-            q++;
-            if(strncmp(m,q,s)!=0){
-                return NyLPC_TBool_FALSE;
-            }
-            m+=s;
-            q+=s;
-        }
-        m++;
-    }
-}
-static NyLPC_TInt16 qnameLen(const char* i_str)
-{
-	NyLPC_TInt16 i=0;
-	for(;;){
-		switch(*(i_str+i)){
-		case 0x00:return i;
-		case 0xc0:return i+1;
+	NyLPC_TUInt8 limit=0;
+	const char* s = i_spos;// question->buf + pos;//クエリの解析位置
+	for (;;){
+		switch (*(const NyLPC_TUInt8*)s){
+		case 0x00:
+			//queryが先に終了に到達するのはおかしい。
+			return NULL;
+		case 0xc0:
+			s = i_packet_buf + *((const NyLPC_TUInt8*)s + 1);//参照先にジャンプ
+			if (i_spos<=s){
+				//後方参照ならエラー
+				return NULL;
+			}
+			limit++;
+			if (limit > 32){
+				return NULL;
+			}
+			continue;
+		default:
+			break;
 		}
+		break;
+	}
+	return s;
+}
+
+/**
+ * [i_name].[i_protocol].localをquestionと比較します。i_nameは省略ができます。
+ * @return 等しい場合true
+ */
+static NyLPC_TBool NyLPC_TDnsQuestion_isEqualName(const struct NyLPC_TDnsQuestion* question, const char* i_name, const char* i_protocol)
+{
+	NyLPC_TUInt8 tmp;
+	const char* p;						//プロトコル文字列の解析開始位置
+	const char* s = question->buf + (NyLPC_TUInt8)question->qname_pos; //クエリの解析位置
+
+	//Domain
+	if (i_name != NULL){
+		//0xc0参照の解決
+		s = getExtractNamePos(question->buf, s);
+		if (s == NULL){
+			return NyLPC_TBool_FALSE;
+		}
+		tmp = (NyLPC_TUInt8)strlen(i_name);
+		if (tmp != *s || memcmp(s + 1, i_name, tmp) != 0){
+			return NyLPC_TBool_FALSE;
+		}
+		s += (*s) + 1;
+	}else{
+		s = question->buf + (NyLPC_TUInt8)question->qname_pos;//クエリの解析位置
+	}
+	p = i_protocol;
+	//Protocol
+	for (;;){
+		//0xc0参照の解決
+		s = getExtractNamePos(question->buf, s);
+		if (s == NULL){
+			return NyLPC_TBool_FALSE;
+		}
+		//SRVの末端到達
+		if (*p == 0){
+			if (question->buf + question->buf_len<s + 7 + 4){
+				return NyLPC_TBool_FALSE;
+			}
+			return (memcmp("\5local\0", s, 7) == 0);
+		}
+		//有効サイズなら一致検出
+		if (question->buf + question->buf_len<s + 1 + (NyLPC_TUInt8)*s + 4){
+			return NyLPC_TBool_FALSE;
+		}
+		if (memcmp(p, s + 1, (NyLPC_TUInt8)*s) != 0){
+			//不一致
+			return NyLPC_TBool_FALSE;
+		}
+		//検出位置の移動
+		p += (*s) + 1;
+		s += (*s) + 1;
+	}
+}
+
+
+static NyLPC_TUInt16 NyLPC_TDnsQuestion_parse(const char* i_packet, NyLPC_TUInt16 i_packet_len, NyLPC_TInt16 i_parse_start, struct NyLPC_TDnsQuestion* o_val)
+{
+	NyLPC_TUInt16 i;
+	//解析開始位置を計算
+	NyLPC_TUInt16 qlen = 0;
+	for (i = i_parse_start; i<i_packet_len - 4; i++){
+		switch ((NyLPC_TUInt8)(*(i_packet + i))){
+		case 0x00:
+			qlen++;
+			break;
+		case 0xc0:
+			qlen+=2;
+			break;
+		default:
+			qlen++;
+			continue;
+		}
+		o_val->buf = i_packet;
+		o_val->buf_len = i_packet_len;
+		o_val->qname_pos = i_parse_start;
+		o_val->qtype = NyLPC_ntohs(*(NyLPC_TUInt16*)(i_packet+i_parse_start + qlen));
+		o_val->qclass = NyLPC_ntohs(*(NyLPC_TUInt16*)(i_packet+i_parse_start + qlen + sizeof(NyLPC_TUInt16)));
+		return qlen + 4;
 	}
 	return 0;
 }
+
 /**
  * DNSレコードのPRTフィールドとDNSラベル文字列を比較する。
  */
-static NyLPC_TInt16 NyLPC_TDnsRecord_getMatchPtrIdx(const struct NyLPC_TDnsRecord* i_struct,const NyLPC_TChar* question)
+static NyLPC_TInt16 NyLPC_TDnsRecord_getMatchPtrIdx(const struct NyLPC_TDnsRecord* i_struct,const struct NyLPC_TDnsQuestion* question)
 {
     NyLPC_TInt16 i;
     for(i=0;i<i_struct->num_of_srv;i++){
-        if(isEqualName(i_struct->srv[i].protocol,question)){
+        if(NyLPC_TDnsQuestion_isEqualName(question,NULL,i_struct->srv[i].protocol)){
             return i;
         }
     }
     return -1;
 }
-static NyLPC_TInt16 NyLPC_TDnsRecord_getMatchSrvIdx(const struct NyLPC_TDnsRecord* i_struct,const NyLPC_TChar* question)
+static NyLPC_TInt16 NyLPC_TDnsRecord_getMatchSrvIdx(const struct NyLPC_TDnsRecord* i_struct,const struct NyLPC_TDnsQuestion* question)
 {
     NyLPC_TInt16 i;
-    NyLPC_TInt16 l=(NyLPC_TInt16)strlen(i_struct->name);
-    //Aレコードをチェック
-    if(l!=question[0] || memcmp(question+1,i_struct->name,l)!=0){
-        return -1;
-    }
     for(i=0;i<i_struct->num_of_srv;i++){
-        if(isEqualName(i_struct->srv[i].protocol,question+l+1)){
+    	if(NyLPC_TDnsQuestion_isEqualName(question,i_struct->name,i_struct->srv[i].protocol)){
             return i;
-        }
+    	}
     }
     return -1;
 }
-/**
- * _services._dns-sd._udp.localであるか確認する。
- */
-static NyLPC_TBool NyLPC_TDnsRecord_isServicesDnsSd(const NyLPC_TChar* question)
-{
-    return memcmp(question,"\x09_services\x07_dns-sd\x04_udp\5local\x00",30)==0;
-}
+
 
 
 /**
@@ -361,21 +388,21 @@ inline static NyLPC_TInt16 writeARecord(char* obuf,NyLPC_TInt16 obuflen,const Ny
     //IPADDR
     (*(NyLPC_TUInt16*)(obuf+ret))=NyLPC_HTONS(4);
     (*(NyLPC_TUInt32*)(obuf+ret+2))=ip->v;
-    return ret+8;
+    return ret+6;
 }
 
 
-static NyLPC_TInt16 writeSdPtrRecord(const char* i_qname,const struct NyLPC_TMDnsServiceRecord* i_srvlec,char* obuf,NyLPC_TInt16 obuflen,struct TLabelCache* i_ca)
+static NyLPC_TInt16 writeSdPtrRecord(const struct NyLPC_TDnsQuestion* i_question,const struct NyLPC_TMDnsServiceRecord* i_srvlec,char* obuf,NyLPC_TInt16 obuflen,struct TLabelCache* i_ca)
 {
     NyLPC_TInt16 l,s;
     //Header
-    s=(NyLPC_TInt16)strlen(i_qname)+1;
+    s=(NyLPC_TInt16)*(i_question->buf+i_question->qname_pos);
     //Headerの長さチェック
-    if(obuflen<s+2+2+4){
+    if(obuflen<30+2+2+4){
         return 0;
     }
     //Header書込み
-    memcpy(obuf,i_qname,s);
+    memcpy(obuf,"\x09_services\x07_dns-sd\x04_udp\x05local\x00",30);
     s=TLabelCache_compress(i_ca,obuf);
     (*(NyLPC_TUInt16*)(obuf+s))=NyLPC_HTONS(NyLPC_TDnsQuestion_QTYPR_PTR);
     (*(NyLPC_TUInt16*)(obuf+s+2))=NyLPC_HTONS(NyLPC_TDnsQuestion_QCLASS_IN);
@@ -541,7 +568,7 @@ static void sendReply2(NyLPC_TcMDnsServer_t* i_inst,const struct NyLPC_TDnsHeade
     switch(q->qtype){
     case NyLPC_TDnsQuestion_QTYPR_SRV:
         //SRV,A record
-        ptr_recode=NyLPC_TDnsRecord_getMatchSrvIdx(i_inst->_ref_record,q->qname);
+        ptr_recode=NyLPC_TDnsRecord_getMatchSrvIdx(i_inst->_ref_record,q);
         if(ptr_recode<0){
             goto DROP;
         }
@@ -570,7 +597,7 @@ static void sendReply2(NyLPC_TcMDnsServer_t* i_inst,const struct NyLPC_TDnsHeade
         break;
     case NyLPC_TDnsQuestion_QTYPR_A:
         //自分宛？(name.local)
-        if(!isEqualName(i_inst->_ref_record->a,q->qname)){
+        if(!NyLPC_TDnsQuestion_isEqualName(q,i_inst->_ref_record->a,"")){
             goto DROP;
         }
         //Bufferの取得
@@ -588,7 +615,8 @@ static void sendReply2(NyLPC_TcMDnsServer_t* i_inst,const struct NyLPC_TDnsHeade
         l+=s;
         break;
     case NyLPC_TDnsQuestion_QTYPR_PTR:
-        if(NyLPC_TDnsRecord_isServicesDnsSd(q->qname)){
+    	//_service._dns-sd._udpかどうか
+        if(NyLPC_TDnsQuestion_isEqualName(q,NULL,"_services._dns-sd._udp")){
             //Bufferの取得
             obuf=NyLPC_cUdpSocket_allocSendBuf(&(i_inst->_super),512,&obuflen,0);
             if(obuf==NULL){
@@ -596,7 +624,7 @@ static void sendReply2(NyLPC_TcMDnsServer_t* i_inst,const struct NyLPC_TDnsHeade
             }
             l=setResponseHeader(obuf,i_dns_header,i_inst->_ref_record->num_of_srv,0,0);
             for(i2=0;i2<i_inst->_ref_record->num_of_srv;i2++){
-                s=writeSdPtrRecord(q->qname,&(i_inst->_ref_record->srv[i2]),obuf+l,obuflen-l,&cache);
+                s=writeSdPtrRecord(q,&(i_inst->_ref_record->srv[i2]),obuf+l,obuflen-l,&cache);
                 if(s<=0){
                     NyLPC_OnErrorGoto(ERROR);
                 }
@@ -604,7 +632,7 @@ static void sendReply2(NyLPC_TcMDnsServer_t* i_inst,const struct NyLPC_TDnsHeade
             }
         }else{
             //自分宛？(proto.local)
-            ptr_recode=NyLPC_TDnsRecord_getMatchPtrIdx(i_inst->_ref_record,q->qname);
+            ptr_recode=NyLPC_TDnsRecord_getMatchPtrIdx(i_inst->_ref_record,q);
             if(ptr_recode<0){
                 goto DROP;
             }
@@ -639,7 +667,7 @@ static void sendReply2(NyLPC_TcMDnsServer_t* i_inst,const struct NyLPC_TDnsHeade
         break;
     case NyLPC_TDnsQuestion_QTYPR_TXT:
         //自分宛？(proto.local)
-        ptr_recode=NyLPC_TDnsRecord_getMatchSrvIdx(i_inst->_ref_record,q->qname);
+        ptr_recode=NyLPC_TDnsRecord_getMatchSrvIdx(i_inst->_ref_record,q);
         if(ptr_recode<0){
             goto DROP;
         }
@@ -676,9 +704,8 @@ DROP:
 
 static NyLPC_TBool onPacket(NyLPC_TcUdpSocket_t* i_inst,const void* i_buf,const struct NyLPC_TIPv4RxInfo* i_info)
 {
-    NyLPC_TUInt16 in_len=i_info->size;
+    NyLPC_TUInt16 in_len;
     NyLPC_TUInt16 num_of_query;
-    const char* qptr;
     struct NyLPC_TDnsQuestion q;
     NyLPC_TUInt16 s;
     NyLPC_TInt16 i;
@@ -687,20 +714,19 @@ static NyLPC_TBool onPacket(NyLPC_TcUdpSocket_t* i_inst,const void* i_buf,const 
         return NyLPC_TBool_FALSE;
     }
 
-    num_of_query=getNumberOfQuestion(i_buf,in_len);
+    num_of_query=getNumberOfQuestion(i_buf,i_info->size);
     if(num_of_query==0){
         goto DROP;
     }
-    qptr=(const char*)i_buf+sizeof(struct NyLPC_TDnsHeader);
-    in_len-=sizeof(struct NyLPC_TDnsHeader);
+    in_len=sizeof(struct NyLPC_TDnsHeader);
     for(i=0;i<num_of_query;i++){
         //Queryのパース
-        s=NyLPC_TDnsQuestion_parse(qptr,in_len,&q);
+
+    	s=NyLPC_TDnsQuestion_parse(i_buf,i_info->size,in_len,&q);
         if(s==0){
             goto DROP;
         }
-        qptr+=s;
-        in_len-=s;
+        in_len+=s;
         sendReply2((NyLPC_TcMDnsServer_t*)i_inst,(const struct NyLPC_TDnsHeader*)i_buf,&q);
     }
     //パケット処理終了
