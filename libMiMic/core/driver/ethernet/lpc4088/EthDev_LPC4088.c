@@ -49,7 +49,7 @@ static NyLPC_TBool start(const struct NyLPC_TEthAddr* i_eth_addr,NyLPC_TiEtherne
 static void stop(void);
 static void* getRxEthFrame(unsigned short* o_len_of_data);
 static void nextRxEthFrame(void);
-static struct void* allocTxBuf(NyLPC_TUInt16 i_hint,NyLPC_TUInt16* o_size);
+static void* allocTxBuf(NyLPC_TUInt16 i_hint,NyLPC_TUInt16* o_size);
 static void releaseTxBuf(void* i_buf);
 static void sendTxEthFrame(void* i_buf,unsigned short i_size);
 static void processTx(void);

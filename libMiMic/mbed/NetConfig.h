@@ -104,6 +104,7 @@ namespace MiMic
          * maximum length is NyLPC_TcNetConfig_HOSTNAME_LEN-1
          */
         void setHostName(const char* i_hostname,int len);
+        const char* getHostName();
         /**
          * Set ethernet mac address to instance.
          */

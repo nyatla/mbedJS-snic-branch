@@ -69,7 +69,7 @@ struct NyLPC_TcNetConfig
         NyLPC_TUInt16 padding;
     }services;
 
-    /** インタフェイス層の設定*/
+    /** インタフェイス層の設定 */
 };
 #define NyLPC_TcNetConfig_IPV4_FLAG_MODE_MASK   0x00000003
 #define NyLPC_TcNetConfig_IPV4_FLAG_MODE_MANUAL 0x00000000

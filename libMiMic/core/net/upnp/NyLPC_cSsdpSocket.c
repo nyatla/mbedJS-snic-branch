@@ -82,7 +82,7 @@ static NyLPC_TBool urlHandler(NyLPC_TcHttpBasicHeaderParser_t* i_inst,NyLPC_TCha
  * SERVER MessageHeaderの値
  * 40文字以内であること。
  */
-#define SERVER_MESSAGE_HEADER "MiMic/1.4;UPnP/1.0;MiMicUPnP/0.1"
+#define SERVER_MESSAGE_HEADER "MiMic/1.4 UPnP/1.0 MiMicUPnP/0.2"
 
 
 /**
@@ -423,10 +423,10 @@ static NyLPC_TBool onPacket(NyLPC_TcUdpSocket_t* i_inst,const void* i_buf,const 
 			}
 		}
 	}else if(strncmp(STR_UPNP_ROOT_DEVICE,header.result.st_str,15)==0){
-		//rootDeviceはdevice0
+		//rootDeviceはSTR_UPNP_ROOT_DEVICE
 		tx=allocMsearchResponeTx(
 			sock,header.result.st_str,
-			sock->ref_device_record[0]->udn,sock->ref_device_record[0]->device_type,
+			sock->ref_device_record[0]->udn,STR_UPNP_ROOT_DEVICE,
 			header.result.st_len,
 			&tx_len);
 		if(tx==NULL){
@@ -479,7 +479,7 @@ ERROR1:
 	return NyLPC_TBool_FALSE;
 }
 
-#define SSDP_NOTIFY_INTERVAL 240*1000	//300*0.8*1000
+#define SSDP_NOTIFY_INTERVAL 150*1000	//300*0.5*1000
 #define FLAG_ORDER_START_SERVICE	0
 #define FLAG_ORDER_STOP_SERVICE		1
 #define FLAG_IS_SERVICE_RUNNING		2

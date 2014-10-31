@@ -233,6 +233,11 @@ void NetConfig::setHostName(const char* i_hostname,int len)
     memcpy(this->_inst.hostname,i_hostname,l);
     *(this->_inst.hostname+l)='\0';
 }
+const char* NetConfig::getHostName()
+{
+    return this->_inst.hostname;
+}
+
 void NetConfig::setFriendlyName(const char* i_name)
 {
     this->_dns_record.name=this->_upnp_desc.frendly_name=(i_name==NULL?STR_EMPTY:i_name);
