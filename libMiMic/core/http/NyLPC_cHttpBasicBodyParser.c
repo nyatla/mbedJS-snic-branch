@@ -85,7 +85,7 @@ NyLPC_TInt32 NyLPC_cHttpBasicBodyParser_parseChar(NyLPC_TcHttpBasicBodyParser_t*
                 break;
             // HEX
             case NyLPC_TcHttpBasicBodyParser_ST_CHUNK_HEADER_START:
-                if(isxdigit(c)){
+                if(isxdigit((int)c)){
                     i_inst->_data.chunked.recv_len=i_inst->_data.chunked.recv_len*16+NyLPC_ctox(c);
                     //一応最大チャンクサイズは決めておこうか。
                     if(i_inst->_data.chunked.recv_len>0x0fffffff){

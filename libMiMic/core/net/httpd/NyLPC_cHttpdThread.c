@@ -6,10 +6,13 @@
 
 static int server(void* p);
 
-void NyLPC_cHttpdThread_initialize(NyLPC_TcHttpdThread_t* i_inst,NyLPC_TcHttpd_t* i_parent,NyLPC_TInt32 i_prio)
+NyLPC_TBool NyLPC_cHttpdThread_initialize(NyLPC_TcHttpdThread_t* i_inst,NyLPC_TcHttpd_t* i_parent,NyLPC_TInt32 i_prio)
 {
-    NyLPC_cHttpdConnection_initialize(&(i_inst->_connection),i_parent);
+    if(!NyLPC_cHttpdConnection_initialize(&(i_inst->_connection),i_parent)){
+    	return NyLPC_TBool_FALSE;
+    }
     NyLPC_cThread_initialize(&(i_inst->_super),NyLPC_cHttpdThread_SIZE_OF_THREAD_STACK,i_prio);
+	return NyLPC_TBool_TRUE;
 }
 void NyLPC_cHttpdThread_finalize(NyLPC_TcHttpdThread_t* i_inst)
 {
@@ -17,7 +20,7 @@ void NyLPC_cHttpdThread_finalize(NyLPC_TcHttpdThread_t* i_inst)
     NyLPC_cHttpdConnection_finalize(&(i_inst->_connection));
 }
 
-NyLPC_TBool NyLPC_cHttpdThread_start(NyLPC_TcHttpdThread_t* i_inst,NyLPC_TcTcpListener_t* i_listener)
+NyLPC_TBool NyLPC_cHttpdThread_start(NyLPC_TcHttpdThread_t* i_inst,NyLPC_TiTcpListener_t* i_listener)
 {
     //停止中？
     if(!NyLPC_cThread_isTerminated(&(i_inst->_super))){

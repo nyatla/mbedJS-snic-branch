@@ -36,19 +36,19 @@
 extern "C" {
 #endif /* __cplusplus */
 
-typedef int NyLPC_TcTcpSocket_t;
-void NyLPC_cTcpSocket_initialized(void* inst,const char* rb,int l);
-void* NyLPC_cTcpSocket_allocSendBuf(void* inst,NyLPC_TUInt16 i_hint,NyLPC_TUInt16* o_len,NyLPC_TUInt32 i_to);
-NyLPC_TBool NyLPC_cTcpSocket_psend(void* inst,void* i_buf,NyLPC_TUInt16 i_len,NyLPC_TUInt32 i_to);
-NyLPC_TInt32 NyLPC_cTcpSocket_precv(void* i_inst,const void** o_buf_ptr,NyLPC_TUInt32 i_wait_msec);
-void NyLPC_cTcpSocket_pseek(void* i_inst,NyLPC_TUInt16 i_seek);
+typedef int NyLPC_TiMiMicIpTcpSocket_t;
+void NyLPC_iTcpSocket_initialized(void* inst,const char* rb,int l);
+void* NyLPC_iTcpSocket_allocSendBuf(void* inst,NyLPC_TUInt16 i_hint,NyLPC_TUInt16* o_len,NyLPC_TUInt32 i_to);
+NyLPC_TBool NyLPC_iTcpSocket_psend(void* inst,void* i_buf,NyLPC_TUInt16 i_len,NyLPC_TUInt32 i_to);
+NyLPC_TInt32 NyLPC_iTcpSocket_precv(void* i_inst,const void** o_buf_ptr,NyLPC_TUInt32 i_wait_msec);
+void NyLPC_iTcpSocket_pseek(void* i_inst,NyLPC_TUInt16 i_seek);
 
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */
 
 #else
-#include "../uip/NyLPC_cTcpSocket.h"
+#include "../netif/NyLPC_iTcpSocket.h"
 #endif
 
 #ifdef __cplusplus
@@ -65,7 +65,7 @@ typedef struct NyLPC_TcHttpStream NyLPC_TcHttpStream_t;
 struct NyLPC_TcHttpStream
 {
     NyLPC_TiHttpPtrStream_t super;
-    NyLPC_TcTcpSocket_t* _ref_sock;
+    NyLPC_TiTcpSocket_t* _ref_sock;
     NyLPC_TUInt8* txb;//送信バッファ
     NyLPC_TUInt16 txb_size;//送信バッファサイズ
     NyLPC_TUInt16 tx_len;  //送信サイズ
@@ -80,7 +80,7 @@ struct NyLPC_TcHttpStream
  * このインスタンスは、NyLPC_TiHttpPtrStream_TInterfaceインタフェイスを提供します。
  * @
  */
-NyLPC_TBool NyLPC_cHttpStream_initialize(NyLPC_TcHttpStream_t* i_inst,NyLPC_TcTcpSocket_t* i_ref_sock);
+NyLPC_TBool NyLPC_cHttpStream_initialize(NyLPC_TcHttpStream_t* i_inst,NyLPC_TiTcpSocket_t* i_ref_sock);
 
 void NyLPC_cHttpStream_finalize(NyLPC_TcHttpStream_t* i_inst);
 

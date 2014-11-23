@@ -29,10 +29,8 @@
  */
 #ifndef NYLPC_NET_H_
 #define NYLPC_NET_H_
-#include "../net/NyLPC_cNet.h"
 
 #include "../net/mdns/NyLPC_cMDnsServer.h"
-#include "../net/apipa/NyLPC_cApipa.h"
 
 #include "../net/httpd/NyLPC_cHttpdConnection.h"
 #include "../net/httpd/NyLPC_cHttpd.h"

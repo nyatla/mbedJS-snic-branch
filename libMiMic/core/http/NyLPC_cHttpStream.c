@@ -32,35 +32,35 @@
 char _wbuf[1024];
 const char* _rbuf;
 int _rbuf_len;
-void NyLPC_cTcpSocket_initialized(void* inst,const char* rb,int l)
+void NyLPC_iTcpSocket_initialized(void* inst,const char* rb,int l)
 {
     _rbuf=rb;
     _rbuf_len=l;
 
 }
-void* NyLPC_cTcpSocket_allocSendBuf(void* inst,NyLPC_TUInt16 i_hint,NyLPC_TUInt16* o_len,NyLPC_TUInt32 i_to)
+void* NyLPC_iIpTcpSocket_allocSendBuf(void* inst,NyLPC_TUInt16 i_hint,NyLPC_TUInt16* o_len,NyLPC_TUInt32 i_to)
 {
     *o_len=30;
     return _wbuf;
 }
-NyLPC_TBool NyLPC_cTcpSocket_psend(void* inst,void* i_buf,NyLPC_TUInt16 i_len,NyLPC_TUInt32 i_to)
+NyLPC_TBool NyLPC_iTcpSocket_psend(void* inst,void* i_buf,NyLPC_TUInt16 i_len,NyLPC_TUInt32 i_to)
 {
     printf("%.*s",i_len,i_buf);
     return NyLPC_TBool_TRUE;
 }
-NyLPC_TInt32 NyLPC_cTcpSocket_precv(void* i_inst,const void** o_buf_ptr,NyLPC_TUInt32 i_wait_msec)
+NyLPC_TInt32 NyLPC_iTcpSocket_precv(void* i_inst,const void** o_buf_ptr,NyLPC_TUInt32 i_wait_msec)
 {
     int l=(_rbuf_len>100)?100:_rbuf_len;
     *o_buf_ptr=_rbuf;
     return l;
 }
-void NyLPC_cTcpSocket_pseek(void* i_inst,NyLPC_TUInt16 i_seek)
+void NyLPC_iTcpSocket_pseek(void* i_inst,NyLPC_TUInt16 i_seek)
 {
     _rbuf+=i_seek;
     _rbuf_len-=i_seek;
 }
 
-void* NyLPC_cTcpSocket_releaseSendBuf(NyLPC_TcTcpSocket_t* i_inst,void* i_buf_ptr)
+void* NyLPC_iTcpSocket_releaseSendBuf(NyLPC_TiTcpSocket_t* i_inst,void* i_buf_ptr)
 {
     return NULL;
 }
@@ -106,7 +106,7 @@ static void put_chunked_header(NyLPC_TUInt16 i_val,NyLPC_TUInt8* o_buf)
 /**
  * 接続済のソケットをストリームに抽象化します。
  */
-NyLPC_TBool NyLPC_cHttpStream_initialize(NyLPC_TcHttpStream_t* i_inst,NyLPC_TcTcpSocket_t* i_ref_sock)
+NyLPC_TBool NyLPC_cHttpStream_initialize(NyLPC_TcHttpStream_t* i_inst,NyLPC_TiTcpSocket_t* i_ref_sock)
 {
     i_inst->super.absfunc=&_interface;
     i_inst->_ref_sock=i_ref_sock;
@@ -119,7 +119,7 @@ NyLPC_TBool NyLPC_cHttpStream_initialize(NyLPC_TcHttpStream_t* i_inst,NyLPC_TcTc
 void NyLPC_cHttpStream_finalize(NyLPC_TcHttpStream_t* i_inst)
 {
     if(i_inst->txb!=NULL){
-        NyLPC_cTcpSocket_releaseSendBuf(i_inst->_ref_sock,i_inst->txb);
+        NyLPC_iTcpSocket_releaseSendBuf(i_inst->_ref_sock,i_inst->txb);
     }
 }
 
@@ -130,7 +130,7 @@ void NyLPC_cHttpStream_finalize(NyLPC_TcHttpStream_t* i_inst)
 static NyLPC_TInt32 pread_func(void* i_inst,const void** o_buf_ptr,NyLPC_TUInt32 i_timeout)
 {
     NyLPC_TcHttpStream_t* inst=(NyLPC_TcHttpStream_t*)i_inst;
-    return NyLPC_cTcpSocket_precv(inst->_ref_sock,o_buf_ptr,i_timeout);
+    return NyLPC_iTcpSocket_precv(inst->_ref_sock,o_buf_ptr,i_timeout);
 }
 
 static NyLPC_TBool write_func(void* i_inst,const void* i_data,NyLPC_TInt32 i_length)
@@ -143,7 +143,7 @@ static NyLPC_TBool write_func(void* i_inst,const void* i_data,NyLPC_TInt32 i_len
     while(l>0){
         //送信バッファがNULLなら、割り当て。
         if(inst->txb==NULL){
-            inst->txb=(NyLPC_TUInt8*)NyLPC_cTcpSocket_allocSendBuf(inst->_ref_sock,HTTP_TX_BUF_HINT,&s,NyLPC_TiHttpPtrStream_DEFAULT_HTTP_TIMEOUT);
+            inst->txb=(NyLPC_TUInt8*)NyLPC_iTcpSocket_allocSendBuf(inst->_ref_sock,HTTP_TX_BUF_HINT,&s,NyLPC_TiHttpPtrStream_DEFAULT_HTTP_TIMEOUT);
             if(inst->txb==NULL){
                 return NyLPC_TBool_FALSE;
             }
@@ -184,7 +184,7 @@ static void pseek_func(void* i_inst,NyLPC_TUInt16 i_seek)
 {
     NyLPC_TcHttpStream_t* inst=(NyLPC_TcHttpStream_t*)i_inst;
 
-    NyLPC_cTcpSocket_pseek(inst->_ref_sock,i_seek);
+    NyLPC_iTcpSocket_pseek(inst->_ref_sock,i_seek);
 }
 
 /**
@@ -205,9 +205,9 @@ static NyLPC_TBool flush_func(void* i_inst)
         inst->tx_len+=2;
     }
     //送信する。
-    if(!NyLPC_cTcpSocket_psend(inst->_ref_sock,inst->txb,inst->tx_len,NyLPC_TiHttpPtrStream_DEFAULT_HTTP_TIMEOUT)){
+    if(!NyLPC_iTcpSocket_psend(inst->_ref_sock,inst->txb,inst->tx_len,NyLPC_TiHttpPtrStream_DEFAULT_HTTP_TIMEOUT)){
         //失敗。
-        NyLPC_cTcpSocket_releaseSendBuf(inst->_ref_sock,inst->txb);
+        NyLPC_iTcpSocket_releaseSendBuf(inst->_ref_sock,inst->txb);
         inst->txb=NULL;
         return NyLPC_TBool_FALSE;
     }

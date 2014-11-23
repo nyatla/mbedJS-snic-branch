@@ -53,7 +53,7 @@ struct NyLPC_TcHttpd
         NyLPC_TcHttpd_onRequest onRequest;
     }function;
     NyLPC_TcMutex_t _mutex;
-    NyLPC_TcTcpListener_t _listener;
+    NyLPC_TiTcpListener_t* _listener;
     NyLPC_TcHttpdThread_t _thread[NyLPC_cHttpd_NUMBER_OF_CONNECTION_THREAD];
     NyLPC_TInt16 _num_of_active_connection;
 };
@@ -61,7 +61,7 @@ struct NyLPC_TcHttpd
 
 
 
-void NyLPC_cHttpd_initialize(NyLPC_TcHttpd_t* i_inst,NyLPC_TUInt16 i_port_number);
+NyLPC_TBool NyLPC_cHttpd_initialize(NyLPC_TcHttpd_t* i_inst,NyLPC_TUInt16 i_port_number);
 void NyLPC_cHttpd_finalize(NyLPC_TcHttpd_t* i_inst);
 void NyLPC_cHttpd_loop(NyLPC_TcHttpd_t* i_inst);
 void NyLPC_cHttpd_lock(NyLPC_TcHttpd_t* i_inst);

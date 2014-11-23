@@ -15,15 +15,19 @@ typedef NyLPC_TUInt8 NyLPC_TcHttpClient_ST;
 
 
 
-void NyLPC_cHttpClient_initialize(NyLPC_TcHttpClient_t* i_inst,void* i_rx_buf,NyLPC_TUInt16 i_rx_size)
+NyLPC_TBool NyLPC_cHttpClient_initialize(NyLPC_TcHttpClient_t* i_inst,void* i_rx_buf,NyLPC_TUInt16 i_rx_size)
 {
-	NyLPC_cTcpSocket_initialize(&i_inst->_sock,i_rx_buf,i_rx_size);
+	i_inst->_sock=NyLPC_cNetIf_createTcpSocketEx(NyLPC_TSocketType_TCP_NORMAL);
+	if(i_inst->_sock==NULL){
+		return NyLPC_TBool_FALSE;
+	}
 	i_inst->_state=NyLPC_TcHttpClient_ST_CLOSED;
+	return NyLPC_TBool_TRUE;
 }
 void NyLPC_cHttpClient_finalize(NyLPC_TcHttpClient_t* i_inst)
 {
 	NyLPC_cHttpClient_close(i_inst);
-	NyLPC_cTcpSocket_finalize(&i_inst->_sock);
+	NyLPC_iTcpSocket_finalize(i_inst->_sock);
 }
 
 void NyLPC_cHttpClient_close(NyLPC_TcHttpClient_t* i_inst)
@@ -44,7 +48,7 @@ void NyLPC_cHttpClient_close(NyLPC_TcHttpClient_t* i_inst)
 	case NyLPC_TcHttpClient_ST_CLOSED:
 		return;
 	}
-	NyLPC_cTcpSocket_close(&i_inst->_sock,1000);
+	NyLPC_iTcpSocket_close(i_inst->_sock,1000);
 	i_inst->_state=NyLPC_TcHttpClient_ST_CLOSED;
 }
 
@@ -61,11 +65,11 @@ NyLPC_TBool NyLPC_cHttpClient_connect(NyLPC_TcHttpClient_t* i_inst,const struct 
 	//ステータスをclosedへ遷移
 	NyLPC_cHttpClient_close(i_inst);
 	//接続
-	if(!NyLPC_cTcpSocket_connect(&i_inst->_sock,i_addr,i_port,3000)){
+	if(!NyLPC_iTcpSocket_connect(i_inst->_sock,i_addr,i_port,3000)){
 		return NyLPC_TBool_FALSE;
 	}
 	//streamの生成
-	if(!NyLPC_cHttpStream_initialize(&i_inst->_stream,&(i_inst->_sock))){
+	if(!NyLPC_cHttpStream_initialize(&i_inst->_stream,i_inst->_sock)){
 		NyLPC_OnErrorGoto(ERROR);
 	}
 	//ステータス遷移
@@ -108,8 +112,8 @@ NyLPC_TBool NyLPC_cHttpClient_sendMethod(
 	if(!NyLPC_cHttpHeaderWriter_writeRequestHeader(
 		&i_inst->pw.head_writer,
 		i_method,
-		NyLPC_cTcpSocket_getPeerAddr(&(i_inst->_sock)),
-		NyLPC_cTcpSocket_getPeerPort(&(i_inst->_sock)),i_path)){
+		NyLPC_iTcpSocket_getPeerAddr((i_inst->_sock)),
+		NyLPC_iTcpSocket_getPeerPort((i_inst->_sock)),i_path)){
 		NyLPC_OnErrorGoto(Error_1);
 	}
 	//MimeType

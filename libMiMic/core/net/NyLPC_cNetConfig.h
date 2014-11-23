@@ -27,7 +27,7 @@
 #define NYLPC_CNETCONFIG_H_
 
 #include "NyLPC_stdlib.h"
-#include "NyLPC_uipService.h"
+#include "NyLPC_netif.h"
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */

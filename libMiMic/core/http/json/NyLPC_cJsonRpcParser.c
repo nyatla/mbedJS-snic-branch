@@ -201,7 +201,7 @@ static NyLPC_TBool isSignedCharSet(const char i_c)
 /**
  * 整数を構成する文字セットであるかを返します。
  */
-#define isUnSignedCharSet(i_c) isdigit(i_c)
+#define isUnSignedCharSet(i_c) isdigit((int)(i_c))
 
 static void putchar_params(NyLPC_TcJsonRpcParser_t* i_inst, char i_c)
 {

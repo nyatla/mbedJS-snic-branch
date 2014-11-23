@@ -1,13 +1,10 @@
-#pragma once
 ////////////////////////////////////////////////////////////////////////////////
 // Net.h
 ////////////////////////////////////////////////////////////////////////////////
 #include "Net.h"
 #include "NetConfig.h"
 #include "mbed.h"
-DigitalOut l2(LED2);    
-DigitalOut l3(LED3);
-DigitalOut l4(LED4);
+
 namespace MiMic
 {
 
@@ -15,31 +12,29 @@ namespace MiMic
 
     Net::Net()
     {
-        NyLPC_cNet_initialize(&(this->_inst));
+        NyLPC_cNetIf_initialize();
         this->_mdns=NULL;
         this->_upnp=NULL;
     }
     Net::~Net()
     {
-        NyLPC_cNet_finalize(&(this->_inst));
+        NyLPC_cNetIf_finalize();
     }
     void Net::start(NetConfig& i_cfg)
     {
         NyLPC_TcNetConfig_t* base_cfg=i_cfg.refBaseInstance();
         //DHCP & autoIP request
-        if(base_cfg->tcp_mode & NyLPC_TcNetConfig_IPV4_FLAG_MODE_MASK!=0){
+        if((base_cfg->tcp_mode & NyLPC_TcNetConfig_IPV4_FLAG_MODE_MASK)!=0){
             for(;;){
                 //DHCP
                 if((base_cfg->tcp_mode & NyLPC_TcNetConfig_IPV4_FLAG_MODE_DHCP)!=0){
-                    if(NyLPC_cNet_requestAddrDhcp(&(this->_inst),&(base_cfg->super),3)){
+                    if(NyLPC_cNetIf_requestAddrDhcp(&(base_cfg->super),3)){
                         break;
                     }
                 }
                 //AUTOIP
                 if((base_cfg->tcp_mode & NyLPC_TcNetConfig_IPV4_FLAG_MODE_AUTOIP)!=0){
-                    NyLPC_TcApipa_t apipa;
-                    NyLPC_cApipa_initialize(&apipa);
-                    if(NyLPC_cApipa_requestAddr(&apipa,&(base_cfg->super),3)){
+                    if(NyLPC_cNetIf_requestAddrApipa(&(base_cfg->super),3)){
                         break;
                     }
                 }
@@ -56,14 +51,14 @@ namespace MiMic
             NyLPC_cUPnP_initialize(this->_upnp,i_cfg.getHttpPort(),UPNP_ROOT_PATH,i_cfg.refUPnPDevDesc());        
 
         }
-        NyLPC_cNet_start(&(this->_inst),base_cfg);
+        NyLPC_cNetIf_start(&(base_cfg->super));
         if(this->_upnp!=NULL){
             NyLPC_cUPnP_start(this->_upnp);
         }        
     }
     void Net::stop()
     {
-        NyLPC_cNet_stop(&(this->_inst));
+        NyLPC_cNetIf_stop();
         //stop mDNS
         if(this->_mdns!=NULL){
             NyLPC_cMDnsServer_finalize(this->_mdns);        

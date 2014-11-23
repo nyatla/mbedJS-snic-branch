@@ -1,17 +1,22 @@
 #include "NyLPC_cHttpdConnection_protected.h"
 #include "NyLPC_http.h"
+#include "NyLPC_netif.h"
 #include "NyLPC_cHttpdUtils.h"
 #include "./NyLPC_cHttpd_protected.h"
 
 
 
-void NyLPC_cHttpdConnection_initialize(NyLPC_TcHttpdConnection_t* i_inst,NyLPC_TcHttpd_t* i_parent_httpd)
+NyLPC_TBool NyLPC_cHttpdConnection_initialize(NyLPC_TcHttpdConnection_t* i_inst,NyLPC_TcHttpd_t* i_parent_httpd)
 {
-    NyLPC_cTcpSocket_initialize(&(i_inst->_socket),i_inst->_rxbuf,NyLPC_cHttpdConnection_SIZE_OF_RX_BUF);
+    i_inst->_socket=NyLPC_cNetIf_createTcpSocketEx(NyLPC_TSocketType_TCP_HTTP);
+    if(i_inst->_socket==NULL){
+    	return NyLPC_TBool_FALSE;
+    }
     NyLPC_cHttpRequestPrefixParser_initialize(&(i_inst->_pparser));
     i_inst->_parent_httpd=i_parent_httpd;
     i_inst->_res_status=NyLPC_cHttpdConnection_ResStatus_CLOSED;
     i_inst->_req_status=NyLPC_cHttpdConnection_ReqStatus_LISTEN;
+	return NyLPC_TBool_TRUE;
 }
 
 void NyLPC_cHttpdConnection_finalize(NyLPC_TcHttpdConnection_t* i_inst)
@@ -19,7 +24,7 @@ void NyLPC_cHttpdConnection_finalize(NyLPC_TcHttpdConnection_t* i_inst)
     NyLPC_cHttpdConnection_closeResponse(i_inst);
     NyLPC_cHttpdConnection_closeSocket(i_inst);
     NyLPC_cHttpRequestPrefixParser_finalize(i_inst);
-    NyLPC_cTcpSocket_finalize(&(i_inst->_socket));
+    NyLPC_iTcpSocket_finalize(i_inst->_socket);
 }
 
 const NyLPC_TChar* NyLPC_cHttpdConnection_getUrlPrefix(const NyLPC_TcHttpdConnection_t* i_inst)
@@ -236,11 +241,11 @@ Error:
 /**
  * listenerでConnectionのソケットに接続を待ちます。
  */
-NyLPC_TBool NyLPC_cHttpdConnection_listenSocket(NyLPC_TcHttpdConnection_t* i_inst,NyLPC_TcTcpListener_t* i_listener)
+NyLPC_TBool NyLPC_cHttpdConnection_listenSocket(NyLPC_TcHttpdConnection_t* i_inst,NyLPC_TiTcpListener_t* i_listener)
 {
     NyLPC_Assert(i_inst->_req_status==NyLPC_cHttpdConnection_ReqStatus_LISTEN);
     //リスニング
-    if(!NyLPC_cTcpListener_listen(i_listener,&(i_inst->_socket),NyLPC_cHttpdConnection_TIMEOUT_LISTEN)){
+    if(!NyLPC_iTcpListener_listen(i_listener,i_inst->_socket,NyLPC_cHttpdConnection_TIMEOUT_LISTEN)){
         return NyLPC_TBool_FALSE;
     }
     //成功したらステータス遷移
@@ -255,11 +260,11 @@ NyLPC_TBool NyLPC_cHttpdConnection_acceptSocket(NyLPC_TcHttpdConnection_t* i_ins
 {
     NyLPC_Assert(i_inst->_req_status==NyLPC_cHttpdConnection_ReqStatus_ACCEPT);
 
-    if(!NyLPC_cTcpSocket_accept(&(i_inst->_socket),NyLPC_cHttpdConnection_TIMEOUT_ACCEPT)){
+    if(!NyLPC_iTcpSocket_accept(i_inst->_socket,NyLPC_cHttpdConnection_TIMEOUT_ACCEPT)){
         NyLPC_OnErrorGoto(Error);
     }
     //HttpStreamの生成
-    if(!NyLPC_cHttpStream_initialize(&i_inst->_in_stream,&(i_inst->_socket))){
+    if(!NyLPC_cHttpStream_initialize(&i_inst->_in_stream,i_inst->_socket)){
         NyLPC_OnErrorGoto(Error_Connected);
     }
     //初回だけHEADに遷移
@@ -268,7 +273,7 @@ NyLPC_TBool NyLPC_cHttpdConnection_acceptSocket(NyLPC_TcHttpdConnection_t* i_ins
     i_inst->_connection_message_mode=NyLPC_TcHttpdConnection_CONNECTION_MODE_CLOSE;
     return NyLPC_TBool_TRUE;
 Error_Connected:
-    NyLPC_cTcpSocket_close(&(i_inst->_socket),NyLPC_cHttpdConnection_TIMEOUT_CLOSE);
+    NyLPC_iTcpSocket_close(i_inst->_socket,NyLPC_cHttpdConnection_TIMEOUT_CLOSE);
     i_inst->_req_status=NyLPC_cHttpdConnection_ReqStatus_LISTEN;
 Error:
     return NyLPC_TBool_FALSE;
@@ -287,7 +292,7 @@ NyLPC_TBool NyLPC_cHttpdConnection_prefetch(NyLPC_TcHttpdConnection_t* i_inst)
     i_inst->_req_status=NyLPC_cHttpdConnection_ReqStatus_REQPARSE;
     return NyLPC_TBool_TRUE;
 Error_Prefetch:
-    NyLPC_cTcpSocket_close(&(i_inst->_socket),NyLPC_cHttpdConnection_TIMEOUT_CLOSE);
+    NyLPC_iTcpSocket_close(i_inst->_socket,NyLPC_cHttpdConnection_TIMEOUT_CLOSE);
     i_inst->_req_status=NyLPC_cHttpdConnection_ReqStatus_LISTEN;
     return NyLPC_TBool_FALSE;
 }
@@ -346,7 +351,7 @@ void NyLPC_cHttpdConnection_closeSocket(NyLPC_TcHttpdConnection_t* i_inst)
     case NyLPC_cHttpdConnection_ReqStatus_PREFETCH:
         NyLPC_cHttpStream_finalize(&i_inst->_in_stream);
     case NyLPC_cHttpdConnection_ReqStatus_ACCEPT:
-        NyLPC_cTcpSocket_close(&(i_inst->_socket),NyLPC_cHttpdConnection_TIMEOUT_CLOSE);
+        NyLPC_iTcpSocket_close(i_inst->_socket,NyLPC_cHttpdConnection_TIMEOUT_CLOSE);
     default:
         break;
     }

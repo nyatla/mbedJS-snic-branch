@@ -1,5 +1,6 @@
 #include "Httpd.h"
 #include "HttpdConnection.h"
+#include "mbed.h"
 namespace MiMic
 {
     char Httpd::_shared_buf[SIZE_OF_HTTP_BUF];
@@ -11,7 +12,9 @@ namespace MiMic
     }
     Httpd::Httpd(int i_port_number)
     {
-        NyLPC_cHttpd_initialize((NyLPC_TcHttpd_t*)(&this->_inst),(NyLPC_TUInt16)i_port_number);
+        if(!NyLPC_cHttpd_initialize((NyLPC_TcHttpd_t*)(&this->_inst),(NyLPC_TUInt16)i_port_number)){
+        	mbed_die();
+        }
         this->_inst._parent=this;
         this->_inst.super.function.onRequest=onRequestHandler;
     }

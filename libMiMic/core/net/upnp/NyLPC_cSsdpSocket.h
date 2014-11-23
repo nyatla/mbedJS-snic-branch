@@ -7,8 +7,8 @@
 
 #ifndef NYLPC_CSSDPSOCKET_H_
 #define NYLPC_CSSDPSOCKET_H_
+#include "NyLPC_netif.h"
 #include "NyLPC_UPnP_types.h"
-#include "NyLPC_uipService.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -27,7 +27,7 @@ typedef struct NyLPC_TcSsdpSocket NyLPC_TcSsdpSocket_t;
 
 struct NyLPC_TcSsdpSocket
 {
-	NyLPC_TcUdpSocket_t super;
+	NyLPC_TiUdpSocket_t* _socket;
 	NyLPC_TcStopwatch_t _periodic_sw;
 	/**
 	 * locationパス

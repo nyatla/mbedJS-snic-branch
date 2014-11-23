@@ -3,7 +3,7 @@
 // TcpSocket.h
 ////////////////////////////////////////////////////////////////////////////////
 
-#include "NyLPC_net.h"
+#include "NyLPC_netif.h"
 #include "IpAddr.h"
 
 namespace MiMic
@@ -15,15 +15,13 @@ namespace MiMic
     class TcpSocket
     {
     private:
-        NyLPC_TcTcpSocket_t _inst;
-        void* _private_rx;
+        NyLPC_TiTcpSocket_t* _inst;
     public:
         /** wrapped base LPC class.*/
-        NyLPC_TcTcpSocket_t* refBaseInstance(){return &this->_inst;}
+        NyLPC_TiTcpSocket_t* refBaseInstance(){return this->_inst;}
     
     public:
-        TcpSocket(unsigned short i_rx_buf_size=(unsigned short)512);
-        TcpSocket(void* i_rx_buf,unsigned short i_rx_buf_size);
+        TcpSocket();
         virtual ~TcpSocket();
         /**
          * @param i_host_addr

@@ -24,7 +24,7 @@
  *
  *********************************************************************************/
 #include "NyLPC_cMDnsServer.h"
-#include "NyLPC_uipService.h"
+#include "NyLPC_netif.h"
 #include "NyLPC_http.h"
 #include "NyLPC_utils.h"
 #include <stdio.h>
@@ -37,7 +37,8 @@
 #define MDNS_MCAST_PORT         5353
 static const struct NyLPC_TIPv4Addr MDNS_MCAST_IPADDR = NyLPC_TIPv4Addr_pack(224, 0, 0, 251);
 #define TIMEOUT_IN_MS       1000
-#define NyLPC_TcMDns_TTL (120)    //120
+#define NyLPC_TcMDns_RES_TTL (120)    //120
+#define NyLPC_TcMDns_STD_TTL (30*60)  //(30min
 
 
 struct NyLPC_TDnsHeader
@@ -446,7 +447,7 @@ static NyLPC_TInt16 query2label(char* i_packet, NyLPC_TInt16 i_spos, NyLPC_TInt1
 }
 
 
-static NyLPC_TInt16 writeSrvResourceHeader(char* i_packet, NyLPC_TInt16 i_spos, NyLPC_TInt16 buflen, const struct NyLPC_TDnsRecord* i_recode, int i_sid, NyLPC_TUInt16 i_type, NyLPC_TUInt16 i_class)
+static NyLPC_TInt16 writeSrvResourceHeader(char* i_packet, NyLPC_TInt16 i_spos, NyLPC_TInt16 buflen, const struct NyLPC_TDnsRecord* i_recode, NyLPC_TInt16 i_sid, NyLPC_TUInt16 i_type, NyLPC_TUInt16 i_class,NyLPC_TUInt16 i_ttl)
 {
     NyLPC_TInt16 s;
     NyLPC_TInt16 l = (NyLPC_TInt16)(1 + strlen(i_recode->name) + 1 + strlen(i_recode->srv[i_sid].protocol) + 1 + 5 + 1);
@@ -459,7 +460,7 @@ static NyLPC_TInt16 writeSrvResourceHeader(char* i_packet, NyLPC_TInt16 i_spos, 
     l = compressName(i_packet, i_spos, s);//圧縮
     (*(NyLPC_TUInt16*)(i_packet + l)) = NyLPC_HTONS(i_type);
     (*(NyLPC_TUInt16*)(i_packet + l + 2)) = NyLPC_HTONS(i_class);
-    (*(NyLPC_TUInt32*)(i_packet + l + 4)) = NyLPC_HTONL(NyLPC_TcMDns_TTL);
+    (*(NyLPC_TUInt32*)(i_packet + l + 4)) = NyLPC_HTONL(i_ttl);
     return l + 2 + 2 + 4;
 }
 
@@ -485,24 +486,24 @@ static NyLPC_TUInt16 setResponseHeader(char* i_packet, const struct NyLPC_TDnsHe
     p->ar = NyLPC_HTONS(i_ar_count);
     return sizeof(struct NyLPC_TDnsHeader);
 }
-/**
-* ドメイン名からAレコードレスポンスを書きだす。
-*/
-static NyLPC_TInt16 writeARecord(char* i_packet, NyLPC_TInt16 i_spos, NyLPC_TInt16 obuflen, const NyLPC_TChar* i_name, const struct NyLPC_TIPv4Addr* ip)
+static NyLPC_TUInt16 setAnnounceHeader(char* i_packet,NyLPC_TUInt16 i_an_count, NyLPC_TUInt16 i_ns_count, NyLPC_TUInt16 i_ar_count)
 {
-    NyLPC_TInt16 s;
-    //AnswerはAレコードのみ
-    NyLPC_TInt16 l = 1 + (NyLPC_TInt16)strlen(i_name) + 1 + 5 + 1;
-    if (obuflen<i_spos + l + 4 + 4){
-        return 0;
-    }
-    s = str2label(i_packet + i_spos, i_name) - 1;
-    s += str2label(i_packet + i_spos + s, "local");
-    //レコード圧縮
-    l = compressName(i_packet, i_spos, s);
+    struct NyLPC_TDnsHeader* p = (struct NyLPC_TDnsHeader*)i_packet;
+    p->id = 0;
+    p->flag = NyLPC_HTONS(NyLPC_TDnsHeader_FLAG_MASK_QR | NyLPC_TDnsHeader_FLAG_MASK_AA);
+    p->qd = 0;
+    p->an = NyLPC_HTONS(i_an_count);
+    p->ns = NyLPC_HTONS(i_ns_count);
+    p->ar = NyLPC_HTONS(i_ar_count);
+    return sizeof(struct NyLPC_TDnsHeader);
+}
+
+static NyLPC_TInt16 writeARecordData(char* i_packet, NyLPC_TInt16 i_spos,NyLPC_TInt16 obuflen,const struct NyLPC_TIPv4Addr* ip)
+{
+    NyLPC_TInt16 l=i_spos;
     (*(NyLPC_TUInt16*)(i_packet + l)) = NyLPC_HTONS(NyLPC_TDnsQuestion_QTYPR_A);
     (*(NyLPC_TUInt16*)(i_packet + l + 2)) = NyLPC_HTONS(NyLPC_TDnsQuestion_QCLASS_IN | NyLPC_TDnsQuestion_QCLASS_CACHE_FLUSH);
-    (*(NyLPC_TUInt32*)(i_packet + l + 4)) = NyLPC_HTONL(NyLPC_TcMDns_TTL);
+    (*(NyLPC_TUInt32*)(i_packet + l + 4)) = NyLPC_HTONL(NyLPC_TcMDns_RES_TTL);
     l += 2 + 2 + 4;
     //A record header
     if (obuflen<l + 6){
@@ -512,7 +513,23 @@ static NyLPC_TInt16 writeARecord(char* i_packet, NyLPC_TInt16 i_spos, NyLPC_TInt
     //IPADDR
     (*(NyLPC_TUInt16*)(i_packet + l)) = NyLPC_HTONS(4);
     (*(NyLPC_TUInt32*)(i_packet + l + 2)) = ip->v;
-    return l + 6;
+    return l + 6;//NEXT_SPOS
+}
+/**
+* ドメイン名からAレコードレスポンスを書きだす。
+*/
+static NyLPC_TInt16 writeARecord(char* i_packet, NyLPC_TInt16 i_spos, NyLPC_TInt16 obuflen, const NyLPC_TChar* i_name, const struct NyLPC_TIPv4Addr* ip)
+{
+    //AnswerはAレコードのみ
+    NyLPC_TInt16 s = 1 + (NyLPC_TInt16)strlen(i_name) + 1 + 5 + 1;
+    if (obuflen<i_spos + s + 4 + 4){
+        return 0;
+    }
+    s = str2label(i_packet + i_spos, i_name) - 1;
+    s += str2label(i_packet + i_spos + s, "local");
+    //レコード圧縮
+    s = compressName(i_packet, i_spos, s);
+    return writeARecordData(i_packet,s,obuflen,ip);
 }
 
 /**
@@ -520,114 +537,72 @@ static NyLPC_TInt16 writeARecord(char* i_packet, NyLPC_TInt16 i_spos, NyLPC_TInt
 */
 static NyLPC_TInt16 writeARecordByQuery(char* i_packet, NyLPC_TInt16 i_spos, NyLPC_TInt16 obuflen, const struct NyLPC_TDnsQuestion* i_query, const struct NyLPC_TIPv4Addr* ip)
 {
-    NyLPC_TInt16 s;
-    //AnswerはAレコードのみ
-    NyLPC_TInt16 l;
-    s = query2label(i_packet, i_spos, obuflen, i_query);
+    NyLPC_TInt16 s = query2label(i_packet, i_spos, obuflen, i_query);
     if (s == 0){
         return 0;
     }
-
     //レコード圧縮
-    l = compressName(i_packet, i_spos, s);
-    (*(NyLPC_TUInt16*)(i_packet + l)) = NyLPC_HTONS(NyLPC_TDnsQuestion_QTYPR_A);
+    s = compressName(i_packet, i_spos, s);
+    return writeARecordData(i_packet,s,obuflen,ip);
+}
+
+/*
+static NyLPC_TInt16 writeAAAARecordByQueryData(char* i_packet, NyLPC_TInt16 i_spos,NyLPC_TInt16 obuflen,const struct NyLPC_TIPv4Addr* ip)
+{
+    NyLPC_TInt16 l=i_spos;
+    (*(NyLPC_TUInt16*)(i_packet + l)) = NyLPC_HTONS(NyLPC_TDnsQuestion_QTYPR_AAAA);
     (*(NyLPC_TUInt16*)(i_packet + l + 2)) = NyLPC_HTONS(NyLPC_TDnsQuestion_QCLASS_IN | NyLPC_TDnsQuestion_QCLASS_CACHE_FLUSH);
-    (*(NyLPC_TUInt32*)(i_packet + l + 4)) = NyLPC_HTONL(NyLPC_TcMDns_TTL);
+    (*(NyLPC_TUInt32*)(i_packet + l + 4)) = NyLPC_HTONL(NyLPC_TcMDns_RES_TTL);
     l += 2 + 2 + 4;
     //A record header
-    if (obuflen<l + 6){
+    if (obuflen<l + 2 + 16){
         return 0;
     }
-    //Aレコードを書く
+    //AAAAレコードを書く
     //IPADDR
-    (*(NyLPC_TUInt16*)(i_packet + l)) = NyLPC_HTONS(4);
-    (*(NyLPC_TUInt32*)(i_packet + l + 2)) = ip->v;
-    return l + 6;
-}
+    (*(NyLPC_TUInt16*)(i_packet + l)) = NyLPC_HTONS(16);
+    memset(i_packet + l + 2, 0, 10);
+    (*(NyLPC_TUInt16*)(i_packet + l + 2 + 10)) = 0xffff;
+    (*(NyLPC_TUInt32*)(i_packet + l + 2 + 12)) = ip->v;
+    return l + 2 + 16;
+}*/
+
 
 /**
 * AレコードクエリからAレコードレスポンスを書きだす。
-*/
+*//*
 static NyLPC_TInt16 writeAAAARecordByQuery(char* i_packet, NyLPC_TInt16 i_spos, NyLPC_TInt16 obuflen, const struct NyLPC_TDnsQuestion* i_query, const struct NyLPC_TIPv4Addr* ip)
 {
-    NyLPC_TInt16 s;
-    //AnswerはAレコードのみ
-    NyLPC_TInt16 l;
-    s = query2label(i_packet, i_spos, obuflen, i_query);
+    NyLPC_TInt16 s = query2label(i_packet, i_spos, obuflen, i_query);
     if (s == 0){
         return 0;
     }
-
     //レコード圧縮
-    l = compressName(i_packet, i_spos, s);
-    (*(NyLPC_TUInt16*)(i_packet + l)) = NyLPC_HTONS(NyLPC_TDnsQuestion_QTYPR_AAAA);
-    (*(NyLPC_TUInt16*)(i_packet + l + 2)) = NyLPC_HTONS(NyLPC_TDnsQuestion_QCLASS_IN | NyLPC_TDnsQuestion_QCLASS_CACHE_FLUSH);
-    (*(NyLPC_TUInt32*)(i_packet + l + 4)) = NyLPC_HTONL(NyLPC_TcMDns_TTL);
-    l += 2 + 2 + 4;
-    //A record header
-    if (obuflen<l + 2 + 16){
-        return 0;
-    }
-    //AAAAレコードを書く
-    //IPADDR
-    (*(NyLPC_TUInt16*)(i_packet + l)) = NyLPC_HTONS(16);
-    memset(i_packet + l + 2, 0, 10);
-    (*(NyLPC_TUInt16*)(i_packet + l + 2 + 10)) = 0xffff;
-    (*(NyLPC_TUInt32*)(i_packet + l + 2 + 12)) = ip->v;
-    return l + 2 + 16;
-}
+    s = compressName(i_packet, i_spos, s);
+    return writeAAAARecordByQueryData(i_packet,s,obuflen,ip);
+}*/
 /**
 * AレコードクエリからAレコードレスポンスを書きだす。
-*/
+*//*
 static NyLPC_TInt16 writeAAAARecord(char* i_packet, NyLPC_TInt16 i_spos, NyLPC_TInt16 obuflen, const NyLPC_TChar* i_name, const struct NyLPC_TIPv4Addr* ip)
 {
-    NyLPC_TInt16 s;
-    //AnswerはAレコードのみ
-    NyLPC_TInt16 l = 1 + (NyLPC_TInt16)strlen(i_name) + 1 + 5 + 1;
-    if (obuflen<i_spos + l + 4 + 4){
+    NyLPC_TInt16 s = 1 + (NyLPC_TInt16)strlen(i_name) + 1 + 5 + 1;
+    if (obuflen<i_spos + s + 4 + 4){
         return 0;
     }
     s = str2label(i_packet + i_spos, i_name) - 1;
     s += str2label(i_packet + i_spos + s, "local");
-
     //レコード圧縮
-    l = compressName(i_packet, i_spos, s);
-    (*(NyLPC_TUInt16*)(i_packet + l)) = NyLPC_HTONS(NyLPC_TDnsQuestion_QTYPR_AAAA);
-    (*(NyLPC_TUInt16*)(i_packet + l + 2)) = NyLPC_HTONS(NyLPC_TDnsQuestion_QCLASS_IN | NyLPC_TDnsQuestion_QCLASS_CACHE_FLUSH);
-    (*(NyLPC_TUInt32*)(i_packet + l + 4)) = NyLPC_HTONL(NyLPC_TcMDns_TTL);
-    l += 2 + 2 + 4;
-    //A record header
-    if (obuflen<l + 2 + 16){
-        return 0;
-    }
-    //AAAAレコードを書く
-    //IPADDR
-    (*(NyLPC_TUInt16*)(i_packet + l)) = NyLPC_HTONS(16);
-    memset(i_packet + l + 2, 0, 10);
-    (*(NyLPC_TUInt16*)(i_packet + l + 2 + 10)) = 0xffff;
-    (*(NyLPC_TUInt32*)(i_packet + l + 2 + 12)) = ip->v;
-    return l + 2 + 16;
-}
-/**
-* NSECレコードレスポンスを書きだす。
-* IPv6わからんし。
-*/
-static NyLPC_TInt16 writeNSECRecord(char* i_packet, NyLPC_TInt16 i_spos, NyLPC_TInt16 obuflen, const NyLPC_TChar* i_name)
+    s = compressName(i_packet, i_spos, s);
+    return writeAAAARecordByQueryData(i_packet,s,obuflen,ip);
+}*/
+
+static NyLPC_TInt16 writeNSECRecordData(char* i_packet, NyLPC_TInt16 i_spos, NyLPC_TInt16 obuflen,NyLPC_TInt16 i_next_domain)
 {
-    NyLPC_TInt16 s;
-    //AnswerはAレコードのみ
-    NyLPC_TInt16 l = 1 + (NyLPC_TInt16)strlen(i_name) + 1 + 5 + 1;
-    if (obuflen<i_spos + l + 4 + 4){
-        return 0;
-    }
-    s = str2label(i_packet + i_spos, i_name) - 1;
-    s += str2label(i_packet + i_spos + s, "local");
-
-    //レコード圧縮
-    l = i_spos + s;//compressName(i_packet,i_spos,s);
+    NyLPC_TInt16 l=i_spos;
     (*(NyLPC_TUInt16*)(i_packet + l)) = NyLPC_HTONS(NyLPC_TDnsQuestion_QTYPR_NSEC);
     (*(NyLPC_TUInt16*)(i_packet + l + 2)) = NyLPC_HTONS(NyLPC_TDnsQuestion_QCLASS_IN | NyLPC_TDnsQuestion_QCLASS_CACHE_FLUSH);
-    (*(NyLPC_TUInt32*)(i_packet + l + 4)) = NyLPC_HTONL(NyLPC_TcMDns_TTL);
+    (*(NyLPC_TUInt32*)(i_packet + l + 4)) = NyLPC_HTONL(NyLPC_TcMDns_RES_TTL);
     l += 2 + 2 + 4;
     //A record header
     if (obuflen<l + 2 + 2 + 6){
@@ -637,10 +612,27 @@ static NyLPC_TInt16 writeNSECRecord(char* i_packet, NyLPC_TInt16 i_spos, NyLPC_T
     *((NyLPC_TUInt16*)(i_packet + l)) = NyLPC_HTONS(2 + 6);
     l += 2;
     *(i_packet + l) = 0xc0;
-    *(i_packet + l + 1) = (NyLPC_TUInt8)i_spos;
+    *(i_packet + l + 1) = (NyLPC_TUInt8)i_next_domain;
     l += 2;
     memcpy(i_packet + l, "\x00\x04\x00\x00\x00\x08", 6);
     return l + 6;
+}
+/**
+* NSECレコードレスポンスを書きだす。
+* IPv6わからんし。
+*/
+static NyLPC_TInt16 writeNSECRecord(char* i_packet, NyLPC_TInt16 i_spos, NyLPC_TInt16 obuflen, const NyLPC_TChar* i_name)
+{
+    //AnswerはAレコードのみ
+    NyLPC_TInt16 s = 1 + (NyLPC_TInt16)strlen(i_name) + 1 + 5 + 1;
+    if (obuflen<i_spos + s + 4 + 4){
+        return 0;
+    }
+    s = str2label(i_packet + i_spos, i_name) - 1;
+    s += str2label(i_packet + i_spos + s, "local");
+    //レコード圧縮
+    s = i_spos + s;//compressName(i_packet,i_spos,s);
+    return writeNSECRecordData(i_packet,s,obuflen,i_spos);
 }
 /**
 * NSECレコードレスポンスを書きだす。
@@ -650,35 +642,21 @@ static NyLPC_TInt16 writeNSECRecordByQuery(char* i_packet, NyLPC_TInt16 i_spos, 
 {
     NyLPC_TInt16 s;
     //AnswerはAレコードのみ
-    NyLPC_TInt16 l;
     s = query2label(i_packet, i_spos, obuflen, i_query);
     if (s == 0){
         return 0;
     }
 
     //レコード圧縮
-    l = i_spos + s;
+    s = i_spos + s;
     //    l=compressName(i_packet,i_spos,s);
-    (*(NyLPC_TUInt16*)(i_packet + l)) = NyLPC_HTONS(NyLPC_TDnsQuestion_QTYPR_NSEC);
-    (*(NyLPC_TUInt16*)(i_packet + l + 2)) = NyLPC_HTONS(NyLPC_TDnsQuestion_QCLASS_IN | NyLPC_TDnsQuestion_QCLASS_CACHE_FLUSH);
-    (*(NyLPC_TUInt32*)(i_packet + l + 4)) = NyLPC_HTONL(NyLPC_TcMDns_TTL);
-    l += 2 + 2 + 4;
-    //A record header
-    if (obuflen<l + 2 + 2 + 6){
-        return 0;
-    }
-    //NSECレコードを書く
-    *((NyLPC_TUInt16*)(i_packet + l)) = NyLPC_HTONS(2 + 6);
-    l += 2;
-    *(i_packet + l) = 0xc0;
-    *(i_packet + l + 1) = (NyLPC_TUInt8)i_spos;
-    l += 2;
-    memcpy(i_packet + l, "\x00\x04\x00\x00\x00\x08", 6);
-    return l + 6;
+    return writeNSECRecordData(i_packet,s,obuflen,i_spos);
 }
-static NyLPC_TInt16 writeSdPtrRecord(const struct NyLPC_TDnsQuestion* i_question, const struct NyLPC_TMDnsServiceRecord* i_srvlec, char* i_packet, NyLPC_TInt16 i_spos, NyLPC_TInt16 obuflen)
+
+static NyLPC_TInt16 writeSdPtrRecord(const struct NyLPC_TMDnsServiceRecord* i_srvlec, char* i_packet, NyLPC_TInt16 i_spos, NyLPC_TInt16 obuflen)
 {
     NyLPC_TInt16 l, s;
+    NyLPC_TUInt16* rlen;
     //Header
     //    s=(NyLPC_TInt16)*(i_question->buf+i_question->qname_pos);
     //Headerの長さチェック
@@ -690,7 +668,7 @@ static NyLPC_TInt16 writeSdPtrRecord(const struct NyLPC_TDnsQuestion* i_question
     s = compressName(i_packet, i_spos, 30);
     (*(NyLPC_TUInt16*)(i_packet + s)) = NyLPC_HTONS(NyLPC_TDnsQuestion_QTYPR_PTR);
     (*(NyLPC_TUInt16*)(i_packet + s + 2)) = NyLPC_HTONS(NyLPC_TDnsQuestion_QCLASS_IN);
-    (*(NyLPC_TUInt32*)(i_packet + s + 4)) = NyLPC_HTONL(NyLPC_TcMDns_TTL);
+    (*(NyLPC_TUInt32*)(i_packet + s + 4)) = NyLPC_HTONL(NyLPC_TcMDns_STD_TTL);
     l = s + 2 + 2 + 4;
 
     //Resourceの書込み
@@ -698,13 +676,15 @@ static NyLPC_TInt16 writeSdPtrRecord(const struct NyLPC_TDnsQuestion* i_question
     if (obuflen<s + l + 2){
         return 0;
     }
-    (*(NyLPC_TUInt16*)(i_packet + l)) = NyLPC_ntohs(s);
+    rlen=(NyLPC_TUInt16*)(i_packet + l);
     l += 2;
     s = str2label(i_packet + l, i_srvlec->protocol) - 1;
     s += str2label(i_packet + l + s, "local");
     s = compressName(i_packet, l, s);//圧縮
+    *rlen = NyLPC_ntohs(s - l);
     return s;
 }
+
 static NyLPC_TInt16 writePtrRecord(const struct NyLPC_TDnsRecord* i_recode, NyLPC_TInt16 i_sid, char* i_packet, NyLPC_TInt16 i_spos, NyLPC_TInt16 obuflen)
 {
     NyLPC_TInt16 l, s;
@@ -721,7 +701,7 @@ static NyLPC_TInt16 writePtrRecord(const struct NyLPC_TDnsRecord* i_recode, NyLP
     s = compressName(i_packet, i_spos, s);
     (*(NyLPC_TUInt16*)(i_packet + s)) = NyLPC_HTONS(NyLPC_TDnsQuestion_QTYPR_PTR);
     (*(NyLPC_TUInt16*)(i_packet + s + 2)) = NyLPC_HTONS(NyLPC_TDnsQuestion_QCLASS_IN);
-    (*(NyLPC_TUInt32*)(i_packet + s + 4)) = NyLPC_HTONL(NyLPC_TcMDns_TTL);
+    (*(NyLPC_TUInt32*)(i_packet + s + 4)) = NyLPC_HTONL(NyLPC_TcMDns_STD_TTL);
     l = s + 2 + 2 + 4;
 
     //Resourceの書込み
@@ -745,7 +725,7 @@ static NyLPC_TInt16 writeSRVRecord(NyLPC_TcMDnsServer_t* i_inst, NyLPC_TInt16 i_
     NyLPC_TUInt16* rlen;
 
     //SRV Record
-    s = writeSrvResourceHeader(i_packet, i_spos, obuflen, i_inst->_ref_record, i_sid, NyLPC_TDnsQuestion_QTYPR_SRV, NyLPC_TDnsQuestion_QCLASS_IN | NyLPC_TDnsQuestion_QCLASS_CACHE_FLUSH);
+    s = writeSrvResourceHeader(i_packet, i_spos, obuflen, i_inst->_ref_record, i_sid, NyLPC_TDnsQuestion_QTYPR_SRV, NyLPC_TDnsQuestion_QCLASS_IN | NyLPC_TDnsQuestion_QCLASS_CACHE_FLUSH,NyLPC_TcMDns_RES_TTL);
     if (s == 0){
         return 0;
     }
@@ -771,7 +751,7 @@ static NyLPC_TInt16 writeTXTRecord(NyLPC_TcMDnsServer_t* i_inst, NyLPC_TInt16 i_
     NyLPC_TInt16 ret;
     NyLPC_TInt16 l;
     //Answer
-    ret = writeSrvResourceHeader(i_packet, i_spos, obuflen, i_inst->_ref_record, i_sid, NyLPC_TDnsQuestion_QTYPR_TXT, NyLPC_TDnsQuestion_QCLASS_IN | NyLPC_TDnsQuestion_QCLASS_CACHE_FLUSH);
+    ret = writeSrvResourceHeader(i_packet, i_spos, obuflen, i_inst->_ref_record, i_sid, NyLPC_TDnsQuestion_QTYPR_TXT, NyLPC_TDnsQuestion_QCLASS_IN | NyLPC_TDnsQuestion_QCLASS_CACHE_FLUSH,NyLPC_TcMDns_STD_TTL);
     if (ret == 0){
         return 0;
     }
@@ -795,18 +775,28 @@ static void sendAnnounse(NyLPC_TcMDnsServer_t* i_inst)
     char* obuf;
     NyLPC_TUInt16 obuflen;
     NyLPC_TUInt16 l;
-    int i2;
+    int i,i2;
     for(i2=0;i2<i_inst->_ref_record->num_of_srv;i2++){
         //Bufferの取得
-        obuf=NyLPC_cUdpSocket_allocSendBuf(&(i_inst->_super),512,&obuflen,TIMEOUT_IN_MS);
+        obuf=NyLPC_iUdpSocket_allocSendBuf(i_inst->_socket,512,&obuflen,TIMEOUT_IN_MS);
         if(obuf==NULL){
             return;
         }
-        l=setResponseHeader(obuf,NULL,1,0,5);
+        l=setAnnounceHeader(obuf,1+i_inst->_ref_record->num_of_srv+4,0,0);
+        //<Answer />
+        //PTR
         l=writePtrRecord(i_inst->_ref_record,i2,obuf,l,obuflen);
+        //SD-PTR
         if(l<=0){
             NyLPC_OnErrorGoto(ERROR);
         }
+        for (i = 0; i<i_inst->_ref_record->num_of_srv; i++){
+            l = writeSdPtrRecord(&(i_inst->_ref_record->srv[i]), obuf, l, obuflen);
+            if (l <= 0){
+                NyLPC_OnErrorGoto(ERROR);
+            }
+        }
+        //<Additional/>
         //SRV
         l=writeSRVRecord(i_inst,i2,obuf,l,obuflen);
         if(l<=0){
@@ -818,27 +808,27 @@ static void sendAnnounse(NyLPC_TcMDnsServer_t* i_inst)
             NyLPC_OnErrorGoto(ERROR);
         }
         //Aレコード
-        l=writeARecord(obuf,l,obuflen,i_inst->_ref_record->a,&(i_inst->_super.uip_udp_conn.lipaddr));
+        l=writeARecord(obuf,l,obuflen,i_inst->_ref_record->a,NyLPC_iUdpSocket_getSockIP(i_inst->_socket));
         if(l<=0){
             NyLPC_OnErrorGoto(ERROR);
         }
-        //AAAAレコード
-        l=writeAAAARecord(obuf,l,obuflen,i_inst->_ref_record->a,&(i_inst->_super.uip_udp_conn.lipaddr));
-        if(l<=0){
-            NyLPC_OnErrorGoto(ERROR);
-        }        
+//        //AAAAレコード
+//        l=writeAAAARecord(obuf,l,obuflen,i_inst->_ref_record->a,&(i_inst->_super.uip_udp_conn.lipaddr));
+//        if(l<=0){
+//            NyLPC_OnErrorGoto(ERROR);
+//        }
         //NSEC
         l=writeNSECRecord(obuf,l,obuflen,i_inst->_ref_record->a);
         if(l<=0){
             NyLPC_OnErrorGoto(ERROR);
         }          
-        if(!NyLPC_cUdpSocket_psend(&(i_inst->_super),&MDNS_MCAST_IPADDR,MDNS_MCAST_PORT,obuf,l)){
+        if(!NyLPC_iUdpSocket_psend(i_inst->_socket,&MDNS_MCAST_IPADDR,MDNS_MCAST_PORT,obuf,l)){
             NyLPC_OnErrorGoto(ERROR);
         }
     }
     return;
 ERROR:
-    NyLPC_cUdpSocket_releaseSendBuf(&(i_inst->_super),obuf);
+    NyLPC_iUdpSocket_releaseSendBuf(i_inst->_socket,obuf);
     return;
 }
 
@@ -860,12 +850,12 @@ static void sendReply2(NyLPC_TcMDnsServer_t* i_inst, const struct NyLPC_TDnsHead
             goto DROP;
         }
         //Bufferの取得
-        obuf = NyLPC_cUdpSocket_allocSendBuf(&(i_inst->_super), 512, &obuflen, 0);
+        obuf = NyLPC_iUdpSocket_allocSendBuf(i_inst->_socket, 512, &obuflen, 0);
         if (obuf == NULL){
             goto DROP;
         }
         //SRV,(TXT,A,AAAA,NSEC)
-        l = setResponseHeader(obuf, i_dns_header, 1, 0, 4);
+        l = setResponseHeader(obuf, i_dns_header, 1, 0, 3);
         l = writeSRVRecord(i_inst, ptr_recode, obuf, l, obuflen);
         if (l <= 0){
             NyLPC_OnErrorGoto(ERROR);
@@ -875,22 +865,22 @@ static void sendReply2(NyLPC_TcMDnsServer_t* i_inst, const struct NyLPC_TDnsHead
             NyLPC_OnErrorGoto(ERROR);
         }
         //Aレコード
-        l = writeARecord(obuf, l, obuflen, i_inst->_ref_record->a, &(i_inst->_super.uip_udp_conn.lipaddr));
+        l = writeARecord(obuf, l, obuflen, i_inst->_ref_record->a, NyLPC_iUdpSocket_getSockIP(i_inst->_socket));
         if (l <= 0){
             NyLPC_OnErrorGoto(ERROR);
         }
-        //AAAAレコード
-        l = writeAAAARecord(obuf, l, obuflen, i_inst->_ref_record->a, &(i_inst->_super.uip_udp_conn.lipaddr));
-        if (l <= 0){
-            NyLPC_OnErrorGoto(ERROR);
-        }
+//        //AAAAレコード
+//        l = writeAAAARecord(obuf, l, obuflen, i_inst->_ref_record->a, &(i_inst->_super.uip_udp_conn.lipaddr));
+//        if (l <= 0){
+//            NyLPC_OnErrorGoto(ERROR);
+//        }
         //NSEC
         l = writeNSECRecord(obuf, l, obuflen, i_inst->_ref_record->a);
         if (l <= 0){
             NyLPC_OnErrorGoto(ERROR);
         }
         break;
-    case NyLPC_TDnsQuestion_QTYPR_AAAA:
+/*    case NyLPC_TDnsQuestion_QTYPR_AAAA:
         //自分宛？(name.local)
         if (!NyLPC_TDnsQuestion_isEqualName(q, i_inst->_ref_record->a, "")){
             goto DROP;
@@ -918,21 +908,21 @@ static void sendReply2(NyLPC_TcMDnsServer_t* i_inst, const struct NyLPC_TDnsHead
         if (l <= 0){
             NyLPC_OnErrorGoto(ERROR);
         }
-        break;
+        break;*/
     case NyLPC_TDnsQuestion_QTYPR_A:
         //自分宛？(name.local)
         if (!NyLPC_TDnsQuestion_isEqualName(q, i_inst->_ref_record->a, "")){
             goto DROP;
         }
         //Bufferの取得
-        obuf = NyLPC_cUdpSocket_allocSendBuf(&(i_inst->_super), 512, &obuflen, 0);
+        obuf = NyLPC_iUdpSocket_allocSendBuf(i_inst->_socket, 512, &obuflen, 0);
         if (obuf == NULL){
             goto DROP;
         }
         //Headerのコピー
         l = setResponseHeader(obuf, i_dns_header, 1, 0, 1);
         //A、(NSEC
-        l = writeARecordByQuery(obuf, l, obuflen, q, &(i_inst->_super.uip_udp_conn.lipaddr));
+        l = writeARecordByQuery(obuf, l, obuflen, q, NyLPC_iUdpSocket_getSockIP(i_inst->_socket));
         if (l <= 0){
             NyLPC_OnErrorGoto(ERROR);
         }
@@ -945,13 +935,13 @@ static void sendReply2(NyLPC_TcMDnsServer_t* i_inst, const struct NyLPC_TDnsHead
         //_service._dns-sd._udpかどうか
         if (NyLPC_TDnsQuestion_isEqualName(q, NULL, "_services._dns-sd._udp")){
             //Bufferの取得
-            obuf = NyLPC_cUdpSocket_allocSendBuf(&(i_inst->_super), 512, &obuflen, 0);
+            obuf = NyLPC_iUdpSocket_allocSendBuf(i_inst->_socket, 512, &obuflen, 0);
             if (obuf == NULL){
                 goto DROP;
             }
             l = setResponseHeader(obuf, i_dns_header, i_inst->_ref_record->num_of_srv, 0, 0);
             for (i2 = 0; i2<i_inst->_ref_record->num_of_srv; i2++){
-                l = writeSdPtrRecord(q, &(i_inst->_ref_record->srv[i2]), obuf, l, obuflen);
+                l = writeSdPtrRecord(&(i_inst->_ref_record->srv[i2]), obuf, l, obuflen);
                 if (l <= 0){
                     NyLPC_OnErrorGoto(ERROR);
                 }
@@ -964,11 +954,11 @@ static void sendReply2(NyLPC_TcMDnsServer_t* i_inst, const struct NyLPC_TDnsHead
                 goto DROP;
             }
             //Bufferの取得
-            obuf = NyLPC_cUdpSocket_allocSendBuf(&(i_inst->_super), 512, &obuflen, 0);
+            obuf = NyLPC_iUdpSocket_allocSendBuf(i_inst->_socket, 512, &obuflen, 0);
             if (obuf == NULL){
                 goto DROP;
             }
-            l = setResponseHeader(obuf, i_dns_header, 1, 0, 5);
+            l = setResponseHeader(obuf, i_dns_header, 1, 0, 4);
             l = writePtrRecord(i_inst->_ref_record, ptr_recode, obuf, l, obuflen);
             if (l <= 0){
                 NyLPC_OnErrorGoto(ERROR);
@@ -984,15 +974,15 @@ static void sendReply2(NyLPC_TcMDnsServer_t* i_inst, const struct NyLPC_TDnsHead
                 NyLPC_OnErrorGoto(ERROR);
             }
             //Aレコード
-            l = writeARecord(obuf, l, obuflen, i_inst->_ref_record->a, &(i_inst->_super.uip_udp_conn.lipaddr));
+            l = writeARecord(obuf, l, obuflen, i_inst->_ref_record->a,NyLPC_iUdpSocket_getSockIP(i_inst->_socket));
             if (l <= 0){
                 NyLPC_OnErrorGoto(ERROR);
             }
-            //AAAAレコード
-            l = writeAAAARecord(obuf, l, obuflen, i_inst->_ref_record->a, &(i_inst->_super.uip_udp_conn.lipaddr));
-            if (l <= 0){
-                NyLPC_OnErrorGoto(ERROR);
-            }
+//            //AAAAレコード
+//            l = writeAAAARecord(obuf, l, obuflen, i_inst->_ref_record->a, &(i_inst->_super.uip_udp_conn.lipaddr));
+//            if (l <= 0){
+//                NyLPC_OnErrorGoto(ERROR);
+//            }
             //NSEC
             l = writeNSECRecord(obuf, l, obuflen, i_inst->_ref_record->a);
             if (l <= 0){
@@ -1007,22 +997,22 @@ static void sendReply2(NyLPC_TcMDnsServer_t* i_inst, const struct NyLPC_TDnsHead
             goto DROP;
         }
         //Bufferの取得
-        obuf = NyLPC_cUdpSocket_allocSendBuf(&(i_inst->_super), 512, &obuflen, 0);
-        l = setResponseHeader(obuf, i_dns_header, 1, 0, 3);
+        obuf = NyLPC_iUdpSocket_allocSendBuf(i_inst->_socket, 512, &obuflen, 0);
+        l = setResponseHeader(obuf, i_dns_header, 1, 0, 2);
         l = writeTXTRecord(i_inst, ptr_recode, obuf, l, obuflen);
         if (l <= 0){
             NyLPC_OnErrorGoto(ERROR);
         }
         //A recoad
-        l = writeARecord(obuf, l, obuflen, i_inst->_ref_record->a, &(i_inst->_super.uip_udp_conn.lipaddr));
+        l = writeARecord(obuf, l, obuflen, i_inst->_ref_record->a,NyLPC_iUdpSocket_getSockIP(i_inst->_socket));
         if (l <= 0){
             NyLPC_OnErrorGoto(ERROR);
         }
-        //AAAAレコード
-        l = writeAAAARecord(obuf, l, obuflen, i_inst->_ref_record->a, &(i_inst->_super.uip_udp_conn.lipaddr));
-        if (l <= 0){
-            NyLPC_OnErrorGoto(ERROR);
-        }
+//        //AAAAレコード
+//        l = writeAAAARecord(obuf, l, obuflen, i_inst->_ref_record->a, &(i_inst->_super.uip_udp_conn.lipaddr));
+//        if (l <= 0){
+//            NyLPC_OnErrorGoto(ERROR);
+//        }
         //NSEC
         l = writeNSECRecord(obuf, l, obuflen, i_inst->_ref_record->a);
         if (l <= 0){
@@ -1032,21 +1022,21 @@ static void sendReply2(NyLPC_TcMDnsServer_t* i_inst, const struct NyLPC_TDnsHead
     default:
         goto DROP;
     }
-    if (!NyLPC_cUdpSocket_psend(&(i_inst->_super), &MDNS_MCAST_IPADDR, MDNS_MCAST_PORT, obuf, l)){
+    if (!NyLPC_iUdpSocket_psend(i_inst->_socket, &MDNS_MCAST_IPADDR, MDNS_MCAST_PORT, obuf, l)){
         NyLPC_OnErrorGoto(ERROR);
     }
     return;
 ERROR:
-    NyLPC_cUdpSocket_releaseSendBuf(&(i_inst->_super), obuf);
+    NyLPC_iUdpSocket_releaseSendBuf(i_inst->_socket, obuf);
 DROP:
     return;
 }
-#define CTRL_FLAG_INIT           0x00
-#define CTRL_FLAG_STARTED        0x80
-#define CTRL_FLAG_STOP_REQUESTED 0x40
-#define CTRL_FLAG_PROCESS_PACKET 0x20   //パケット処理中の間1
+#define ST_INIT 1       //初期QUERY送信(省略)
+#define ST_ANNOUNCE 2   //アナウンス
+#define ST_WAIT 3       //待機
 
-static NyLPC_TBool onPacket(NyLPC_TcUdpSocket_t* i_inst,const void* i_buf,const struct NyLPC_TIPv4RxInfo* i_info)
+
+static NyLPC_TBool onPacket(NyLPC_TiUdpSocket_t* i_inst,const void* i_buf,const struct NyLPC_TIPv4RxInfo* i_info)
 {
     NyLPC_TUInt16 in_len;
     NyLPC_TUInt16 num_of_query;
@@ -1071,7 +1061,7 @@ static NyLPC_TBool onPacket(NyLPC_TcUdpSocket_t* i_inst,const void* i_buf,const 
             goto DROP;
         }
         in_len+=s;
-        sendReply2((NyLPC_TcMDnsServer_t*)i_inst,(const struct NyLPC_TDnsHeader*)i_buf,&q);
+        sendReply2((NyLPC_TcMDnsServer_t*)i_inst->_tag,(const struct NyLPC_TDnsHeader*)i_buf,&q);
     }
     //パケット処理終了
     return NyLPC_TBool_FALSE;
@@ -1079,14 +1069,27 @@ DROP:
     return NyLPC_TBool_FALSE;
 }
 
-static void onPeriodic(NyLPC_TcUdpSocket_t* i_inst)
+static void onPeriodic(NyLPC_TiUdpSocket_t* i_inst)
 {
-
-    if(NyLPC_cStopwatch_isExpired(&((NyLPC_TcMDnsServer_t*)i_inst)->_periodic_sw)){
-        //アナウンス
-        sendAnnounse(((NyLPC_TcMDnsServer_t*)i_inst));
-        //TTL(msec)*1000*80%
-        NyLPC_cStopwatch_startExpire((&((NyLPC_TcMDnsServer_t*)i_inst)->_periodic_sw),NyLPC_TcMDns_TTL*1000*4/5);
+    NyLPC_TcMDnsServer_t* inst=(NyLPC_TcMDnsServer_t*)i_inst->_tag;
+    //Announce Timeout
+    if(NyLPC_cStopwatch_isExpired(&((NyLPC_TcMDnsServer_t*)inst)->_periodic_sw)){
+        switch(inst->_state){
+        case ST_WAIT:
+            inst->_state_val=0;
+            inst->_state=ST_ANNOUNCE;// set Announce status
+        case ST_ANNOUNCE:
+            //アナウンス
+            inst->_state_val++;
+            if(inst->_state_val<=3){
+                sendAnnounse(((NyLPC_TcMDnsServer_t*)inst));
+                NyLPC_cStopwatch_startExpire((&((NyLPC_TcMDnsServer_t*)inst)->_periodic_sw),1000);
+            }else{
+                inst->_state=ST_WAIT;
+                //TTL(msec)*1000*80%
+                NyLPC_cStopwatch_startExpire((&((NyLPC_TcMDnsServer_t*)inst)->_periodic_sw),NyLPC_TcMDns_STD_TTL*1000*4/5);
+            }
+        }
     }
 }
 
@@ -1095,17 +1098,20 @@ NyLPC_TBool NyLPC_cMDnsServer_initialize(
 {
     NyLPC_cStopwatch_initialize(&(i_inst->_periodic_sw));
     NyLPC_cStopwatch_startExpire(&(i_inst->_periodic_sw),1000);
-    NyLPC_cUdpSocket_initialize(&(i_inst->_super),MDNS_MCAST_PORT,NULL,0);
-    NyLPC_cUdpSocket_setOnRxHandler(&(i_inst->_super),onPacket);
-    NyLPC_cUdpSocket_setOnPeriodicHandler(&(i_inst->_super),onPeriodic);
-    NyLPC_cUdpSocket_joinMulticast(&(i_inst->_super),&MDNS_MCAST_IPADDR);
+    i_inst->_socket=NyLPC_cNetIf_createUdpSocketEx(MDNS_MCAST_PORT,NyLPC_TSocketType_UDP_NOBUF);
+    i_inst->_socket->_tag=i_inst;
+    NyLPC_iUdpSocket_setOnRxHandler(i_inst->_socket,onPacket);
+    NyLPC_iUdpSocket_setOnPeriodicHandler(i_inst->_socket,onPeriodic);
+    NyLPC_iUdpSocket_joinMulticast(i_inst->_socket,&MDNS_MCAST_IPADDR);
+    i_inst->_state=ST_WAIT;
+    i_inst->_state_val=0;
     i_inst->_ref_record=i_ref_record;
     return NyLPC_TBool_TRUE;
 }
 void NyLPC_cMDnsServer_finalize(
     NyLPC_TcMDnsServer_t* i_inst)
 {
-    NyLPC_cUdpSocket_finalize(&(i_inst->_super));
+    NyLPC_iUdpSocket_finalize(i_inst->_socket);
     NyLPC_cStopwatch_finalize(&(i_inst->_periodic_sw));
 }
 

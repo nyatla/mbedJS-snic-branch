@@ -37,9 +37,9 @@ struct NyLPC_TcHttpdThread
 };
 
 
-void NyLPC_cHttpdThread_initialize(NyLPC_TcHttpdThread_t* i_inst,NyLPC_TcHttpd_t* i_parent,NyLPC_TInt32 i_prio);
+NyLPC_TBool NyLPC_cHttpdThread_initialize(NyLPC_TcHttpdThread_t* i_inst,NyLPC_TcHttpd_t* i_parent,NyLPC_TInt32 i_prio);
 void NyLPC_cHttpdThread_finalize(NyLPC_TcHttpdThread_t* i_inst);
-NyLPC_TBool NyLPC_cHttpdThread_start(NyLPC_TcHttpdThread_t* i_inst,NyLPC_TcTcpListener_t* i_listener);
+NyLPC_TBool NyLPC_cHttpdThread_start(NyLPC_TcHttpdThread_t* i_inst,NyLPC_TiTcpListener_t* i_listener);
 
 #ifdef __cplusplus
 }

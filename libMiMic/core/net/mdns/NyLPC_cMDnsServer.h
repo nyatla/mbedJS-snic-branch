@@ -25,12 +25,12 @@
  *********************************************************************************/
 #ifndef NYLPC_CMDNSSERVER_H_
 #define NYLPC_CMDNSSERVER_H_
+#include "NyLPC_netif.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
 
-#include "NyLPC_net.h"
 
 /**
  * NyLPC_TDnsRecordで使用するサービスレコード
@@ -68,9 +68,13 @@ typedef struct NyLPC_TcMDnsServer NyLPC_TcMDnsServer_t;
 struct NyLPC_TcMDnsServer
 {
     /** マルチキャストのUDPソケット*/
-    NyLPC_TcUdpSocket_t _super;
+    NyLPC_TiUdpSocket_t* _socket;
     /**周期実行タイマ*/
     NyLPC_TcStopwatch_t _periodic_sw;
+    /** 動作モード(private)*/
+    NyLPC_TUInt8 _state;
+    NyLPC_TUInt8 _state_val;
+    NyLPC_TUInt8 _padding[2];
     /** DNSレコードの参照情報*/
     const struct NyLPC_TDnsRecord* _ref_record;
 };

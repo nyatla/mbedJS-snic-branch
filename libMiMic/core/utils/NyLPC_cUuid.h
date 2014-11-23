@@ -26,7 +26,7 @@
 #ifndef NYLPC_CUUID_H_
 #define NYLPC_CUUID_H_
 #include "NyLPC_stdlib.h"
-#include "NyLPC_uipService.h"
+#include "NyLPC_netif.h"
 
 
 #ifdef __cplusplus

@@ -83,7 +83,7 @@ NyLPC_TBool NyLPC_cUrlReader_getUInt(const NyLPC_TChar* i_buf,const NyLPC_TChar*
         //16進数
         p+=2;
         r=l=0;
-        while(isxdigit(*p)){
+        while(isxdigit((int)(*p))){
             r=r*16+NyLPC_ctox(*p);
             if(l!=(r>>4)){return NyLPC_TBool_FALSE;}
             l=r;
@@ -91,7 +91,7 @@ NyLPC_TBool NyLPC_cUrlReader_getUInt(const NyLPC_TChar* i_buf,const NyLPC_TChar*
         }
     }else{
         r=l=0;
-        while(isdigit(*p)){
+        while(isdigit((int)(*p))){
             r=r*10+NyLPC_ctoi(*p);
             if(l!=(r/10)){return NyLPC_TBool_FALSE;}
             l=r;
@@ -120,7 +120,7 @@ NyLPC_TBool NyLPC_cUrlReader_getInt(const NyLPC_TChar* i_buf,const NyLPC_TChar* 
         //16進数
         p+=2;
         r=l=0;
-        while(isxdigit(*p)){
+        while(isxdigit((int)(*p))){
             r=r*16+NyLPC_ctox(*p);
             if(l!=(r>>4)){return NyLPC_TBool_FALSE;}
             l=r;
@@ -129,7 +129,7 @@ NyLPC_TBool NyLPC_cUrlReader_getInt(const NyLPC_TChar* i_buf,const NyLPC_TChar* 
     }else{
         r=l=0;
         if(*p!='-'){
-            while(isdigit(*p)){
+            while(isdigit((int)(*p))){
                 r=r*10+NyLPC_ctoi(*p);
                 if(l!=(r/10)){return NyLPC_TBool_FALSE;}
                 l=r;
@@ -137,7 +137,7 @@ NyLPC_TBool NyLPC_cUrlReader_getInt(const NyLPC_TChar* i_buf,const NyLPC_TChar* 
             }
         }else{
             p++;
-            while(isdigit(*p)){
+            while(isdigit((int)(*p))){
                 r=r*10+NyLPC_ctoi(*p);
                 if(l!=(r/10)){return NyLPC_TBool_FALSE;}
                 l=r;

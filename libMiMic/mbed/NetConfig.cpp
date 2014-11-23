@@ -1,7 +1,6 @@
 #include "NetConfig.h"
-#include "NyLPC_uip.h"
 #include "NyLPC_flash.h"
-#include "NyLPC_uip_ethernet.h"
+#include "NyLPC_netif.h"
 #include "utils/PlatformInfo.h"
 #include <stdio.h>
 #include <stdlib.h>

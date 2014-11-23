@@ -31,7 +31,7 @@
 
 #include "NyLPC_stdlib.h"
 #include "NyLPC_http.h"
-#include "../../NyLPC_cNet.h"
+
 
 #ifdef __cplusplus
 extern "C" {

@@ -28,6 +28,7 @@
 #include "NyLPC_net.h"
 #include "NyLPC_stdlib.h"
 #include "NyLPC_http.h"
+#include <string.h>
 #include <ctype.h>
 
 
@@ -227,7 +228,7 @@ static NyLPC_TInt16 parseSidx(const NyLPC_TChar* i_str)
         return -1;
     }
     //2桁の16進数であること
-    if(!isxdigit(*(i_str+1)) || !isxdigit(*(i_str+2))){
+    if(!isxdigit((int)(*(i_str+1))) || !isxdigit((int)(*(i_str+2)))){
         return -1;
     }
     //サービスID化

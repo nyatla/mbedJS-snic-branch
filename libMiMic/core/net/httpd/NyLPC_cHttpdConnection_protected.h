@@ -7,9 +7,9 @@
 
 #ifndef NYLPC_CHTTPDCONNECTION_PROTECTED_H_
 #define NYLPC_CHTTPDCONNECTION_PROTECTED_H_
-#include "NyLPC_uipService.h"
-#include "NyLPC_cHttpdConnection.h"
+#include "NyLPC_netif.h"
 #include "NyLPC_stdlib.h"
+#include "NyLPC_cHttpdConnection.h"
 #include "NyLPC_cHttpdUtils.h"
 
 #ifdef __cplusplus
@@ -51,7 +51,7 @@ NyLPC_TBool NyLPC_cHttpdConnection_closeResponse(NyLPC_TcHttpdConnection_t* i_in
 /**
  * ソケットをlistenします。LISTEN状態のソケットに使えます。
  */
-NyLPC_TBool NyLPC_cHttpdConnection_listenSocket(NyLPC_TcHttpdConnection_t* i_inst,NyLPC_TcTcpListener_t* i_listener);
+NyLPC_TBool NyLPC_cHttpdConnection_listenSocket(NyLPC_TcHttpdConnection_t* i_inst,NyLPC_TiTcpListener_t* i_listener);
 
 /**
  * コネクションのソケットをacceptします。

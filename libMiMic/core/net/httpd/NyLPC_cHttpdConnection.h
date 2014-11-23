@@ -20,12 +20,6 @@ extern "C" {
 #endif
 
 
-/** HTTPコネクションの受信バッファのサイズ
- */
-#ifndef NyLPC_cHttpdConnection_SIZE_OF_RX_BUF
-#   define NyLPC_cHttpdConnection_SIZE_OF_RX_BUF 512
-#endif
-
 typedef NyLPC_TUInt8 NyLPC_TcHttpdConnection_Status;
 
 /**　リクエストプレフィクスを読み出した状態*/
@@ -68,8 +62,7 @@ struct NyLPC_TcHttpdConnection
     NyLPC_TUInt8 _res_status;//レスポンスステータス
     NyLPC_TUInt8 _connection_message_mode;//COnnection:closeをヘッダに書き込むかのフラグ
     NyLPC_TcHttpd_t* _parent_httpd; //NyLPC_cHttpd
-    NyLPC_TcTcpSocket_t _socket;
-    NyLPC_TUInt8 _rxbuf[NyLPC_cHttpdConnection_SIZE_OF_RX_BUF];
+    NyLPC_TiTcpSocket_t* _socket;
     NyLPC_TcHttpStream_t _in_stream;
     NyLPC_TcHttpRequestPrefixParser_t _pparser;
     union{
@@ -82,7 +75,7 @@ struct NyLPC_TcHttpdConnection
  * @param i_parent_httpd
  *
  */
-void NyLPC_cHttpdConnection_initialize(NyLPC_TcHttpdConnection_t* i_inst,NyLPC_TcHttpd_t* i_parent_httpd);
+NyLPC_TBool NyLPC_cHttpdConnection_initialize(NyLPC_TcHttpdConnection_t* i_inst,NyLPC_TcHttpd_t* i_parent_httpd);
 void NyLPC_cHttpdConnection_finalize(NyLPC_TcHttpdConnection_t* i_inst);
 
 /**

@@ -8,6 +8,7 @@
 
 namespace MiMic
 {
+	class UdpSocket;
     /**
      * Udp Socket Class.
      * The class is used by Net constructor.
@@ -15,34 +16,27 @@ namespace MiMic
     class UdpSocket
     {
     private:
-        NyLPC_TcUdpSocket_t _inst;
-        void* _private_rx;
+        NyLPC_TiUdpSocket_t* _inst;
     public:
         /** wrapped base LPC class.*/
-        NyLPC_TcUdpSocket_t* refBaseInstance(){return &this->_inst;}
-    
+        NyLPC_TiUdpSocket_t* refBaseInstance(){return this->_inst;}
+
     public:
         /**
+         * Create standard UDP socket.
          * @param i_port
          * port number.
-         * @param i_rx_buf_size
-         * Size of the receive memory to allocate on heap
+         * @param i_nobuffer
+         * false(default) -
+         * UDP packets will be receive to  internal buffer. It can be access by precvFrom/precvNext function.
+         * It is accepts only "Short" packet.
+         * MUST BE SET NyLPC_cMiMicIpNetIf_config_UDPSOCKET_MAX 1 or more when MiMicIPNetInterface using.
+         * true -
+         * UDP packets will be handled to onRxHandler function.
+         * It is accepts "Full size" packet.
+         * MUST BE SET NyLPC_cMiMicIpNetIf_config_UDPSOCKET_NB_MAX 1 or more when MiMicIPNetInterface using.
          */
-        UdpSocket(unsigned short i_port,unsigned short i_rx_buf_size=(unsigned short)512);
-        /**
-         * @param i_port
-         * port number.
-         * @param i_rx_buffer
-         * allocated memory for receiving. 
-         * @param i_rx_buf_size
-         * Size of the i_rx_buf
-         */
-        UdpSocket(unsigned short i_port,void* i_rx_buf,unsigned short i_rx_buf_size);
-        /**
-         * This constructor accepts "large" packet by asynchronous handler.
-         * Must be override "onRxHandler" function.
-         */
-        UdpSocket(unsigned short i_port,void* i_rx_handler);
+        UdpSocket(unsigned short i_port,bool i_nobuffer=false);
         virtual ~UdpSocket();
         /**
          * This function return recieved data and size.
@@ -66,6 +60,14 @@ namespace MiMic
         bool sendTo(const IpAddr& i_host,unsigned short i_port,const void* i_tx,unsigned short i_tx_size);
         void joinMulticast(const IpAddr& i_host);
         void setBroadcast(void);
+    protected:
+        /**
+         * callback function.
+         * MUST be override when used callback constructor.
+         */
+        virtual void onRxHandler(const void* i_buf,const struct NyLPC_TIPv4RxInfo* i_info){};
+    	static void rxhandler(NyLPC_TiUdpSocket_t* i_inst,const void* i_buf,const struct NyLPC_TIPv4RxInfo* i_info);
+
    };
 }
 

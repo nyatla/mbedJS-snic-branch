@@ -27,7 +27,7 @@
 #define NYLPC_CHTTPHEADERWRITER_H_
 
 #include "NyLPC_stdlib.h"
-#include "NyLPC_uipService.h"
+#include "NyLPC_netif.h"
 #include "NyLPC_cHttpStream.h"
 #include "NyLPC_cHttpBasicHeaderParser.h"
 #include "NyLPC_cHttpdConfig.h"

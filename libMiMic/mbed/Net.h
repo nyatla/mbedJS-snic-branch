@@ -20,8 +20,6 @@ namespace MiMic
         NyLPC_TcMDnsServer_t* _mdns;
         NyLPC_TcUPnP_t* _upnp;
     public:
-        NyLPC_TcNet_t _inst;
-    public:
         /**
          * The constructor.
          * Must be call after the RTOS started.

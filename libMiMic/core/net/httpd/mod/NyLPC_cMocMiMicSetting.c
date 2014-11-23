@@ -30,7 +30,6 @@
 #include "NyLPC_mimicVm.h"
 #include "NyLPC_flash.h"
 #include "../NyLPC_cHttpdConnection_protected.h"
-#include "../../NyLPC_cNet.h"
 //#include <ctype.h>
 
 #define MOD_VERSION "ModMiMicSetting/1.4"
@@ -200,7 +199,7 @@ static NyLPC_TBool urlHandler(NyLPC_TcHttpBasicHeaderParser_t* i_inst,NyLPC_TCha
             //未知のクエリは無視
             if(i_c!='\0' && i_c!='&'){
                 //許可する文字列は、[:AlNum:]||'_'
-                if(!isalnum(i_c) && i_c!='_'){
+                if(!isalnum((int)i_c) && i_c!='_'){
                     NyLPC_OnErrorGoto(ERROR);
                 }
                 out->content.setup.tmp.host_name[out->content.setup.tmp.host_len++]=i_c;
@@ -376,6 +375,7 @@ static void setup_proc(NyLPC_TcHttpdConnection_t* i_connection,struct TModMiMicS
     NyLPC_TBool ret;
     const struct NyLPC_TMiMicConfigulation* config;
     const NyLPC_TcNetConfig_t* currebt_cfg;
+    const struct NyLPC_TNetInterfaceInfo* netif_info;
     NyLPC_Assert(
         (NyLPC_cHttpdConnection_getMethod(i_connection)==NyLPC_THttpMethodType_GET)||
         (NyLPC_cHttpdConnection_getMethod(i_connection)==NyLPC_THttpMethodType_HEAD));
@@ -428,7 +428,8 @@ static void setup_proc(NyLPC_TcHttpdConnection_t* i_connection,struct TModMiMicS
                 NyLPC_OnErrorGoto(Error);
             }
             //write current status
-            currebt_cfg=(const NyLPC_TcNetConfig_t*)NyLPC_cUipService_refCurrentConfig();
+            netif_info=NyLPC_cNetIf_getInterfaceInfo();
+            currebt_cfg=(const NyLPC_TcNetConfig_t*)(netif_info->current_config);
             if(!NyLPC_cHttpdConnection_sendResponseBodyF(i_connection,
                 "\"cur\":{"
                 "\"mac00010203\":%u,"

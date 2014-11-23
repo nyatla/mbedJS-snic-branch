@@ -11,7 +11,7 @@
 #include "NyLPC_stdlib.h"
 #include "NyLPC_net.h"
 #include "NyLPC_http.h"
-#include "NyLPC_uipService.h"
+#include "NyLPC_netif.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -24,7 +24,7 @@ struct NyLPC_TcHttpClient
 {
 	NyLPC_TUInt8 _state;
 	NyLPC_TUInt8 _padding1;
-	NyLPC_TcTcpSocket_t _sock;
+	NyLPC_TiTcpSocket_t* _sock;
 	NyLPC_TcHttpStream_t _stream;
 	union{
 		NyLPC_TcHttpHeaderWriter_t head_writer;
@@ -35,7 +35,7 @@ struct NyLPC_TcHttpClient
 };
 
 
-void NyLPC_cHttpClient_initialize(NyLPC_TcHttpClient_t* i_inst,void* i_rx_buf,NyLPC_TUInt16 i_rx_size);
+NyLPC_TBool NyLPC_cHttpClient_initialize(NyLPC_TcHttpClient_t* i_inst,void* i_rx_buf,NyLPC_TUInt16 i_rx_size);
 
 void NyLPC_cHttpClient_finalize(NyLPC_TcHttpClient_t* i_inst);
 

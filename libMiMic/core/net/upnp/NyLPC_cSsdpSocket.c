@@ -25,8 +25,8 @@
  *********************************************************************************/
 #include "NyLPC_cSsdpSocket.h"
 #include "NyLPC_http.h"
-#include "NyLPC_uipService.h"
-#include "../uip/NyLPC_cUipService_protected.h"
+#include "NyLPC_netif.h"
+
 
 #include <stdio.h>
 #include <string.h>
@@ -119,7 +119,7 @@ static void* allocMsearchResponeTx(
 	//	"USN: %s%s\r\n"									//5+2=7
 	//	"ST: %s\r\n\r\n"								//4+4=8
 	l=166+len_location+len_usn+len_udn+i_st_len;
-	obuf=NyLPC_cUdpSocket_allocSendBuf(&(i_inst->super),l,&l,TIMEOUT_IN_MS);
+	obuf=NyLPC_iUdpSocket_allocSendBuf(i_inst->_socket,l,&l,TIMEOUT_IN_MS);
 
 	if(obuf==NULL){
 		return NULL;
@@ -127,7 +127,7 @@ static void* allocMsearchResponeTx(
 	//必要なメモリサイズを確保できた?
 	if(l<161+len_location+len_usn+len_udn+i_st_len)
 	{
-		NyLPC_cUdpSocket_releaseSendBuf(&i_inst->super,obuf);
+		NyLPC_iUdpSocket_releaseSendBuf(i_inst->_socket,obuf);
 		return NULL;
 	}
 	//ワーク変数lの再初期化
@@ -140,7 +140,7 @@ static void* allocMsearchResponeTx(
 		"LOCATION: http://");
 	l+=strlen(obuf);
 	//IP addr:port\r\n
-	l+=NyLPC_TIPv4Addr_toString(NyLPC_cUdpSocket_getSockIP(&i_inst->super),obuf+l);
+	l+=NyLPC_TIPv4Addr_toString(NyLPC_iUdpSocket_getSockIP(i_inst->_socket),obuf+l);
 	*(obuf+l)=':';
 	l+=1+NyLPC_itoa(i_inst->location_port,obuf+l+1,10);
 	*(obuf+l)='/';l++;
@@ -203,14 +203,14 @@ static void* allocNotifyTx(
 	//	"USN: %s%s\r\n"									//5+2=7
 	//	"NT: %s\r\n\r\n"								//4+4=8
 	l2=204+len_location+len_usn+len_udn+((len_usn>0)?len_usn:len_udn);
-	obuf=NyLPC_cUdpSocket_allocSendBuf(&(i_inst->super),l2,&l,TIMEOUT_IN_MS);
+	obuf=NyLPC_iUdpSocket_allocSendBuf(i_inst->_socket,l2,&l,TIMEOUT_IN_MS);
 	if(obuf==NULL){
 		return NULL;
 	}
 	//必要なメモリサイズを確保できた?
 	if(l<l2)
 	{
-		NyLPC_cUdpSocket_releaseSendBuf(&i_inst->super,obuf);
+		NyLPC_iUdpSocket_releaseSendBuf(i_inst->_socket,obuf);
 		return NULL;
 	}
 	//ワーク変数lの再初期化
@@ -224,7 +224,7 @@ static void* allocNotifyTx(
 		"LOCATION: http://");
 	l+=strlen(obuf);
 	//IP addr:port\r\n
-	l+=NyLPC_TIPv4Addr_toString(NyLPC_cUdpSocket_getSockIP(&i_inst->super),obuf+l);
+	l+=NyLPC_TIPv4Addr_toString(NyLPC_iUdpSocket_getSockIP(i_inst->_socket),obuf+l);
 	*(obuf+l)=':';
 	l+=1+NyLPC_itoa(i_inst->location_port,obuf+l+1,10);
 	*(obuf+l)='/';l++;
@@ -337,14 +337,14 @@ static NyLPC_TBool parseHeader(struct TMSearchHeader* i_out,const void* i_rx,NyL
 	return NyLPC_TBool_TRUE;//OK
 }
 
-static NyLPC_TBool onPacket(NyLPC_TcUdpSocket_t* i_inst,const void* i_buf,const struct NyLPC_TIPv4RxInfo* i_info)
+static NyLPC_TBool onPacket(NyLPC_TiUdpSocket_t* i_sock,const void* i_buf,const struct NyLPC_TIPv4RxInfo* i_info)
 {
 	//パケット解析
 	void* tx;
 	struct TMSearchHeader header;
 	NyLPC_TInt16 tx_len;
 	NyLPC_TInt8 i,i2;
-	NyLPC_TcSsdpSocket_t* sock=(NyLPC_TcSsdpSocket_t*)i_inst;
+	NyLPC_TcSsdpSocket_t* inst=((NyLPC_TcSsdpSocket_t*)i_sock->_tag);
 	if(!parseHeader(&header,i_buf,i_info->size)){
 		NyLPC_OnErrorGoto(ERROR1);
 	}
@@ -364,40 +364,40 @@ static NyLPC_TBool onPacket(NyLPC_TcUdpSocket_t* i_inst,const void* i_buf,const 
 	//STによる処理分岐
 	if(strncmp("ssdp:all",header.result.st_str,8)==0){
 		tx=allocMsearchResponeTx(
-			sock,header.result.st_str,
-			sock->ref_device_record[0]->udn,STR_UPNP_ROOT_DEVICE,
+			inst,header.result.st_str,
+			inst->ref_device_record[0]->udn,STR_UPNP_ROOT_DEVICE,
 			header.result.st_len,
 			&tx_len);
 		if(tx==NULL){
 			NyLPC_OnErrorGoto(ERROR1);
 		}
-		if(!NyLPC_cUdpSocket_psend(i_inst,&i_info->peer_ip,i_info->peer_port,tx,tx_len)){
+		if(!NyLPC_iUdpSocket_psend(i_sock,&i_info->peer_ip,i_info->peer_port,tx,tx_len)){
 			NyLPC_OnErrorGoto(ERROR2);
 		}
 		//全デバイスの送信
-		for(i=0;i<sock->number_of_device;i++){
+		for(i=0;i<inst->number_of_device;i++){
 			tx=allocMsearchResponeTx(
-				sock,header.result.st_str,
-				sock->ref_device_record[i]->udn,sock->ref_device_record[i]->device_type,
+				inst,header.result.st_str,
+				inst->ref_device_record[i]->udn,inst->ref_device_record[i]->device_type,
 				header.result.st_len,
 				&tx_len);
 			if(tx==NULL){
 				NyLPC_OnErrorGoto(ERROR1);
 			}
-			if(!NyLPC_cUdpSocket_psend(i_inst,&i_info->peer_ip,i_info->peer_port,tx,tx_len)){
+			if(!NyLPC_iUdpSocket_psend(i_sock,&i_info->peer_ip,i_info->peer_port,tx,tx_len)){
 				NyLPC_OnErrorGoto(ERROR2);
 			}
-			for(i2=0;i2<sock->ref_device_record[i]->number_of_service;i2++){
+			for(i2=0;i2<inst->ref_device_record[i]->number_of_service;i2++){
 				//serviceに一致
 				tx=allocMsearchResponeTx(
-					sock,header.result.st_str,
-					sock->ref_device_record[i]->udn,sock->ref_device_record[i]->services[i2].service_type,
+					inst,header.result.st_str,
+					inst->ref_device_record[i]->udn,inst->ref_device_record[i]->services[i2].service_type,
 					header.result.st_len,
 					&tx_len);
 				if(tx==NULL){
 					NyLPC_OnErrorGoto(ERROR1);
 				}
-				if(!NyLPC_cUdpSocket_psend(i_inst,&i_info->peer_ip,i_info->peer_port,tx,tx_len)){
+				if(!NyLPC_iUdpSocket_psend(i_sock,&i_info->peer_ip,i_info->peer_port,tx,tx_len)){
 					NyLPC_OnErrorGoto(ERROR2);
 				}
 			}
@@ -405,18 +405,18 @@ static NyLPC_TBool onPacket(NyLPC_TcUdpSocket_t* i_inst,const void* i_buf,const 
 	}else if(strncmp("uuid:",header.result.st_str,5)==0){
 		//UDNの一致するデバイスの送信
 		NyLPC_TInt16 i;
-		for(i=sock->number_of_device-1;i>=0;i--){
-			if(strncmp(header.result.st_str,sock->ref_device_record[i]->udn,header.result.st_len)==0){
+		for(i=inst->number_of_device-1;i>=0;i--){
+			if(strncmp(header.result.st_str,inst->ref_device_record[i]->udn,header.result.st_len)==0){
 				//UDN一致
 				tx=allocMsearchResponeTx(
-					sock,header.result.st_str,
-					sock->ref_device_record[i]->udn,NULL,
+					inst,header.result.st_str,
+					inst->ref_device_record[i]->udn,NULL,
 					header.result.st_len,
 					&tx_len);
 				if(tx==NULL){
 					NyLPC_OnErrorGoto(ERROR1);
 				}
-				if(!NyLPC_cUdpSocket_psend(i_inst,&i_info->peer_ip,i_info->peer_port,tx,tx_len)){
+				if(!NyLPC_iUdpSocket_psend(i_sock,&i_info->peer_ip,i_info->peer_port,tx,tx_len)){
 					NyLPC_OnErrorGoto(ERROR2);
 				}
 				break;//送信処理終了
@@ -425,46 +425,46 @@ static NyLPC_TBool onPacket(NyLPC_TcUdpSocket_t* i_inst,const void* i_buf,const 
 	}else if(strncmp(STR_UPNP_ROOT_DEVICE,header.result.st_str,15)==0){
 		//rootDeviceはSTR_UPNP_ROOT_DEVICE
 		tx=allocMsearchResponeTx(
-			sock,header.result.st_str,
-			sock->ref_device_record[0]->udn,STR_UPNP_ROOT_DEVICE,
+			inst,header.result.st_str,
+			inst->ref_device_record[0]->udn,STR_UPNP_ROOT_DEVICE,
 			header.result.st_len,
 			&tx_len);
 		if(tx==NULL){
 			NyLPC_OnErrorGoto(ERROR1);
 		}
-		if(!NyLPC_cUdpSocket_psend(i_inst,&i_info->peer_ip,i_info->peer_port,tx,tx_len)){
+		if(!NyLPC_iUdpSocket_psend(i_sock,&i_info->peer_ip,i_info->peer_port,tx,tx_len)){
 			NyLPC_OnErrorGoto(ERROR2);
 		}
 	}else if(strncmp("urn:",header.result.st_str,4)==0){
-		for(i=0;i<sock->number_of_device;i++){
+		for(i=0;i<inst->number_of_device;i++){
 			//urn一致チェック
-			if(strncmp(sock->ref_device_record[i]->device_type,header.result.st_str,header.result.st_len)==0){
+			if(strncmp(inst->ref_device_record[i]->device_type,header.result.st_str,header.result.st_len)==0){
 				//deviceに一致
 				tx=allocMsearchResponeTx(
-					sock,header.result.st_str,
-					sock->ref_device_record[i]->udn,sock->ref_device_record[i]->device_type,
+					inst,header.result.st_str,
+					inst->ref_device_record[i]->udn,inst->ref_device_record[i]->device_type,
 					header.result.st_len,
 					&tx_len);
 				if(tx==NULL){
 					NyLPC_OnErrorGoto(ERROR1);
 				}
-				if(!NyLPC_cUdpSocket_psend(i_inst,&i_info->peer_ip,i_info->peer_port,tx,tx_len)){
+				if(!NyLPC_iUdpSocket_psend(i_sock,&i_info->peer_ip,i_info->peer_port,tx,tx_len)){
 					NyLPC_OnErrorGoto(ERROR2);
 				}
 				continue;
 			}
-			for(i2=0;i2<sock->ref_device_record[i]->number_of_service;i2++){
-				if(strncmp(sock->ref_device_record[i]->services[i2].service_type,header.result.st_str,header.result.st_len)==0){
+			for(i2=0;i2<inst->ref_device_record[i]->number_of_service;i2++){
+				if(strncmp(inst->ref_device_record[i]->services[i2].service_type,header.result.st_str,header.result.st_len)==0){
 					//serviceに一致
 					tx=allocMsearchResponeTx(
-						sock,header.result.st_str,
-						sock->ref_device_record[i]->udn,sock->ref_device_record[i]->services[i2].service_type,
+						inst,header.result.st_str,
+						inst->ref_device_record[i]->udn,inst->ref_device_record[i]->services[i2].service_type,
 						header.result.st_len,
 						&tx_len);
 					if(tx==NULL){
 						NyLPC_OnErrorGoto(ERROR1);
 					}
-					if(!NyLPC_cUdpSocket_psend(i_inst,&i_info->peer_ip,i_info->peer_port,tx,tx_len)){
+					if(!NyLPC_iUdpSocket_psend(i_sock,&i_info->peer_ip,i_info->peer_port,tx,tx_len)){
 						NyLPC_OnErrorGoto(ERROR2);
 					}
 				}
@@ -474,7 +474,7 @@ static NyLPC_TBool onPacket(NyLPC_TcUdpSocket_t* i_inst,const void* i_buf,const 
 	//正常終了
 	return NyLPC_TBool_FALSE;
 ERROR2:
-	NyLPC_cUdpSocket_releaseSendBuf(i_inst,tx);
+	NyLPC_iUdpSocket_releaseSendBuf(i_sock,tx);
 ERROR1:
 	return NyLPC_TBool_FALSE;
 }
@@ -484,36 +484,36 @@ ERROR1:
 #define FLAG_ORDER_STOP_SERVICE		1
 #define FLAG_IS_SERVICE_RUNNING		2
 
-static void onPeriodic(NyLPC_TcUdpSocket_t* i_inst)
+static void onPeriodic(NyLPC_TiUdpSocket_t* i_sock)
 {
-	NyLPC_TcSsdpSocket_t* sock=(NyLPC_TcSsdpSocket_t*)i_inst;
-	if(NyLPC_TUInt8_isBitOn(sock->_flags,FLAG_IS_SERVICE_RUNNING)){
+	NyLPC_TcSsdpSocket_t* inst=(NyLPC_TcSsdpSocket_t*)i_sock->_tag;
+	if(NyLPC_TUInt8_isBitOn(inst->_flags,FLAG_IS_SERVICE_RUNNING)){
 	//実行中
 		//停止要求着てる？
-		if(NyLPC_TUInt8_isBitOn(sock->_flags,FLAG_ORDER_STOP_SERVICE))
+		if(NyLPC_TUInt8_isBitOn(inst->_flags,FLAG_ORDER_STOP_SERVICE))
 		{
 			//状態変更
-			NyLPC_TUInt8_unsetBit(sock->_flags,FLAG_IS_SERVICE_RUNNING);
+			NyLPC_TUInt8_unsetBit(inst->_flags,FLAG_IS_SERVICE_RUNNING);
 			//要求フラグクリア
-			NyLPC_TUInt8_unsetBit(sock->_flags,FLAG_ORDER_STOP_SERVICE);
+			NyLPC_TUInt8_unsetBit(inst->_flags,FLAG_ORDER_STOP_SERVICE);
 			//@bug ByeBye送信しろ
-		}else if(NyLPC_cStopwatch_isExpired(&sock->_periodic_sw)){
+		}else if(NyLPC_cStopwatch_isExpired(&inst->_periodic_sw)){
 			//Notify送信
-			NyLPC_cSsdpSocket_notify(sock);
+			NyLPC_cSsdpSocket_notify(inst);
 			//タイマ再始動
-			NyLPC_cStopwatch_startExpire(&sock->_periodic_sw,SSDP_NOTIFY_INTERVAL);
+			NyLPC_cStopwatch_startExpire(&inst->_periodic_sw,SSDP_NOTIFY_INTERVAL);
 		}
 	}else{
 	//停止中
 		//開始要求着てる？
-		if(NyLPC_TUInt8_isBitOn(sock->_flags,FLAG_ORDER_START_SERVICE))
+		if(NyLPC_TUInt8_isBitOn(inst->_flags,FLAG_ORDER_START_SERVICE))
 		{
 			//状態変更
-			NyLPC_TUInt8_setBit(sock->_flags,FLAG_IS_SERVICE_RUNNING);
+			NyLPC_TUInt8_setBit(inst->_flags,FLAG_IS_SERVICE_RUNNING);
 			//要求フラグクリア
-			NyLPC_TUInt8_unsetBit(sock->_flags,FLAG_ORDER_START_SERVICE);
+			NyLPC_TUInt8_unsetBit(inst->_flags,FLAG_ORDER_START_SERVICE);
 			//次回expireするように
-			NyLPC_cStopwatch_startExpire(&sock->_periodic_sw,SSDP_NOTIFY_INTERVAL);
+			NyLPC_cStopwatch_startExpire(&inst->_periodic_sw,SSDP_NOTIFY_INTERVAL);
 		}
 	}
 }
@@ -540,11 +540,13 @@ void NyLPC_cSsdpSocket_initialize(
 		const struct NyLPC_TUPnPDevDescDevice* i_ref_dev_record,
 		NyLPC_TUInt16 i_server_port,const NyLPC_TChar* i_ref_location_path)
 {
-	NyLPC_cUdpSocket_initialize(&(i_inst->super),1900,NULL,0);
-	NyLPC_cUdpSocket_setOnRxHandler(&(i_inst->super),onPacket);
-	NyLPC_cUdpSocket_setOnPeriodicHandler(&(i_inst->super),onPeriodic);
+	i_inst->_socket=NyLPC_cNetIf_createUdpSocketEx(1900,NyLPC_TSocketType_UDP_NOBUF);
+    i_inst->_socket->_tag=i_inst;
 
-	NyLPC_cUdpSocket_joinMulticast(&(i_inst->super),&SSDP_MCAST_IPADDR);
+	NyLPC_iUdpSocket_setOnRxHandler(i_inst->_socket,onPacket);
+	NyLPC_iUdpSocket_setOnPeriodicHandler(i_inst->_socket,onPeriodic);
+
+	NyLPC_iUdpSocket_joinMulticast(i_inst->_socket,&SSDP_MCAST_IPADDR);
 	i_inst->_flags=0;
 	NyLPC_cStopwatch_initialize(&(i_inst->_periodic_sw));
 	i_inst->number_of_device=0;
@@ -555,7 +557,7 @@ void NyLPC_cSsdpSocket_initialize(
 void NyLPC_cSsdpSocket_finalize(NyLPC_TcSsdpSocket_t* i_inst)
 {
 	NyLPC_cStopwatch_finalize(&(i_inst->_periodic_sw));
-	NyLPC_cUdpSocket_finalize(&(i_inst->super));
+	NyLPC_iUdpSocket_finalize(i_inst->_socket);
 }
 
 void NyLPC_cSsdpSocket_start(NyLPC_TcSsdpSocket_t* i_inst)
@@ -598,7 +600,7 @@ void NyLPC_cSsdpSocket_notify(NyLPC_TcSsdpSocket_t* i_inst)
 	if(tx==NULL){
 		NyLPC_OnErrorGoto(ERROR1);
 	}
-	if(!NyLPC_cUdpSocket_psend(&i_inst->super,&SSDP_MCAST_IPADDR,1900,tx,tx_len)){
+	if(!NyLPC_iUdpSocket_psend(i_inst->_socket,&SSDP_MCAST_IPADDR,1900,tx,tx_len)){
 		NyLPC_OnErrorGoto(ERROR2);
 	}
 	//all device
@@ -611,7 +613,7 @@ void NyLPC_cSsdpSocket_notify(NyLPC_TcSsdpSocket_t* i_inst)
 		if(tx==NULL){
 			NyLPC_OnErrorGoto(ERROR1);
 		}
-		if(!NyLPC_cUdpSocket_psend(&i_inst->super,&SSDP_MCAST_IPADDR,1900,tx,tx_len)){
+		if(!NyLPC_iUdpSocket_psend(i_inst->_socket,&SSDP_MCAST_IPADDR,1900,tx,tx_len)){
 			NyLPC_OnErrorGoto(ERROR2);
 		}
 		//devicatype
@@ -622,7 +624,7 @@ void NyLPC_cSsdpSocket_notify(NyLPC_TcSsdpSocket_t* i_inst)
 		if(tx==NULL){
 			NyLPC_OnErrorGoto(ERROR1);
 		}
-		if(!NyLPC_cUdpSocket_psend(&i_inst->super,&SSDP_MCAST_IPADDR,1900,tx,tx_len)){
+		if(!NyLPC_iUdpSocket_psend(i_inst->_socket,&SSDP_MCAST_IPADDR,1900,tx,tx_len)){
 			NyLPC_OnErrorGoto(ERROR2);
 		}
 		for(i2=0;i2<i_inst->ref_device_record[i]->number_of_service;i2++){
@@ -633,14 +635,14 @@ void NyLPC_cSsdpSocket_notify(NyLPC_TcSsdpSocket_t* i_inst)
 			if(tx==NULL){
 				NyLPC_OnErrorGoto(ERROR1);
 			}
-			if(!NyLPC_cUdpSocket_psend(&i_inst->super,&SSDP_MCAST_IPADDR,1900,tx,tx_len)){
+			if(!NyLPC_iUdpSocket_psend(i_inst->_socket,&SSDP_MCAST_IPADDR,1900,tx,tx_len)){
 				NyLPC_OnErrorGoto(ERROR2);
 			}
 		}
 	}
 	return;
 ERROR2:
-	NyLPC_cUdpSocket_releaseSendBuf(&i_inst->super,tx);
+	NyLPC_iUdpSocket_releaseSendBuf(i_inst->_socket,tx);
 ERROR1:
 	return;
 }
