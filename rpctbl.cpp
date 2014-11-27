@@ -20,7 +20,7 @@ const struct NyLPC_TJsonRpcClassDef* RPCTBL[]=
     &MiMic::MbedJsApi::RPC_MBED_I2C,
     &MiMic::MbedJsApi::RPC_MBED_I2C_SLAVE,
     &MiMic::MbedJsApi::RPC_MBED_MCU,
-	&NyLPC_cJsonRpcFunction_Memory,
+    &NyLPC_cJsonRpcFunction_Memory,
     //end of table
     NULL
 };
