@@ -4,7 +4,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 #include "NyLPC_net.h"
-
+#include "netif/INetIf.h"
 
 namespace MiMic
 {
@@ -24,7 +24,7 @@ namespace MiMic
          * The constructor.
          * Must be call after the RTOS started.
          */
-        Net();
+        Net(INetif& i_netif);
         virtual ~Net();
         /**
          * This function starts networking with configulation. 

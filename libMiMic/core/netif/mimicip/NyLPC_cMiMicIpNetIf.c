@@ -58,9 +58,9 @@
 #include "NyLPC_stdlib.h"
 #include "../NyLPC_NetIf_ip_types.h"
 #include "NyLPC_cIPv4IComp_protected.h"
-#include "NyLPC_cMiMicIpTcpSocket.h"
-#include "NyLPC_cMiMicIpUdpSocket.h"
-#include "NyLPC_cMiMicIpTcpListener.h"
+#include "NyLPC_cMiMicIpTcpSocket_protected.h"
+#include "NyLPC_cMiMicIpUdpSocket_protected.h"
+#include "NyLPC_cMiMicIpTcpListener_protected.h"
 
 
 
@@ -117,8 +117,6 @@ static void releaseTxBufNL(void* i_buf);
 
 static NyLPC_TcThread_t th;
 
-
-
 NyLPC_TBool NyLPC_cMiMicIpNetIf_initialize(NyLPC_TcMiMicIpNetIf_t* i_inst)
 {
     //サービスは停止している事。 - Service must be uninitialized.
@@ -131,7 +129,6 @@ NyLPC_TBool NyLPC_cMiMicIpNetIf_initialize(NyLPC_TcMiMicIpNetIf_t* i_inst)
     i_inst->_status=0x00;
     NyLPC_cStopwatch_initialize(&(i_inst->_arp_sw));
     NyLPC_cStopwatch_initialize(&(i_inst->_periodic_sw));
-    NyLPC_cIPv4_initialize(&(i_inst->_tcpv4));
     NyLPC_AbortIfNot(NyLPC_cMutex_initialize(&(i_inst->_mutex)));
 
     _NyLPC_TcMiMicIpNetIf_inst=i_inst;
@@ -585,43 +582,228 @@ static NyLPC_TBool isInitService(void)
 
 
 //--------------------------------------------------------------------------------
-// フラグ
-static NyLPC_TUInt8 socket_flags[
-    NyLPC_cMiMicIpNetIf_config_TCPSOCKET_MAX+
-    NyLPC_cMiMicIpNetIf_config_UDPSOCKET_MAX+
-    NyLPC_cMiMicIpNetIf_config_NB_UDPSOCKET_MAX+
-    NyLPC_cMiMicIpNetIf_config_TCPLISTENER_MAX];
-
-#define FLAGS_USED 0x01
-#define TCP_SOCK_FLSGS(i)		(socket_flags[(i)])
-#define UDP_SOCK_FLSGS(i)		(socket_flags[(i)+NyLPC_cMiMicIpNetIf_config_TCPSOCKET_MAX])
-#define UDP_NB_SOCK_FLSGS(i)	(socket_flags[(i)+NyLPC_cMiMicIpNetIf_config_TCPSOCKET_MAX+NyLPC_cMiMicIpNetIf_config_UDPSOCKET_MAX])
-#define TCP_LISTENER_FLSGS(i)	(socket_flags[(i)+NyLPC_cMiMicIpNetIf_config_TCPSOCKET_MAX+NyLPC_cMiMicIpNetIf_config_UDPSOCKET_MAX+NyLPC_cMiMicIpNetIf_config_NB_UDPSOCKET_MAX])
-
-
+// ソケットテーブル
 //--------------------------------------------------------------------------------
-// SOCKETインスタンスのメモリブロック
-static NyLPC_TUInt8 socket_memblock[
-	sizeof(NyLPC_TcMiMicIpTcpSocket_t)*NyLPC_cMiMicIpNetIf_config_TCPSOCKET_MAX +
-	sizeof(NyLPC_TcMiMicIpUdpSocket_t)*NyLPC_cMiMicIpNetIf_config_UDPSOCKET_MAX +
-	sizeof(NyLPC_TcMiMicIpUdpSocket_t)*NyLPC_cMiMicIpNetIf_config_NB_UDPSOCKET_MAX+
-	sizeof(NyLPC_TcMiMicIpTcpListener_t)*NyLPC_cMiMicIpNetIf_config_TCPLISTENER_MAX];
 
-#define TCP_SOCK_TBL(i)		(((NyLPC_TcMiMicIpTcpSocket_t*)socket_memblock)+i)
-#define UDP_SOCK_TBL(i)		(((NyLPC_TcMiMicIpUdpSocket_t*)(TCP_SOCK_TBL(NyLPC_cMiMicIpNetIf_config_TCPSOCKET_MAX)))+i)
-#define UDP_NB_SOCK_TBL(i)	(((NyLPC_TcMiMicIpUdpSocket_t*)(UDP_SOCK_TBL(NyLPC_cMiMicIpNetIf_config_UDPSOCKET_MAX)))+i)
-#define TCP_LISTENER_TBL(i)	(((NyLPC_TcMiMicIpTcpListener_t*)(UDP_NB_SOCK_TBL(NyLPC_cMiMicIpNetIf_config_NB_UDPSOCKET_MAX)))+i)
+#define FLAGS_USED	0x00000001
+
+struct TTcpTable
+{
+	NyLPC_TUInt32 flags;
+	NyLPC_TcMiMicIpTcpSocket_t socket;
+	NyLPC_TUInt8 rxbuf[NyLPC_cMiMicIpNetIf_config_TCPSOCKET_RX_BUFFER_SIZE];
+};
+struct TUdpTable
+{
+	NyLPC_TUInt32 flags;
+	NyLPC_TcMiMicIpUdpSocket_t socket;
+	NyLPC_TUInt8 rxbuf[NyLPC_cMiMicIpNetIf_config_UDPSOCKET_RX_BUFFER_SIZE];
+};
+struct TUdpNBTable
+{
+	NyLPC_TUInt32 flags;
+	NyLPC_TcMiMicIpUdpSocket_t socket;
+};
+struct TTcpListenerTable
+{
+	NyLPC_TUInt32 flags;
+	NyLPC_TcMiMicIpTcpListener_t listener;
+};
 
 
-//--------------------------------------------------------------------------------
-// ソケットのメモリ
 
-static NyLPC_TUInt8 socket_buffer[
-    NyLPC_cMiMicIpNetIf_config_TCPSOCKET_RX_BUFFER_SIZE*NyLPC_cMiMicIpNetIf_config_TCPSOCKET_MAX+
-    NyLPC_cMiMicIpNetIf_config_UDPSOCKET_RX_BUFFER_SIZE*NyLPC_cMiMicIpNetIf_config_UDPSOCKET_MAX];
+static struct TTcpTable tcp_socket_table[NyLPC_cMiMicIpNetIf_config_TCPSOCKET_MAX];
+static struct TUdpTable udp_socket_table[NyLPC_cMiMicIpNetIf_config_UDPSOCKET_MAX];
+static struct TUdpNBTable udp_socket_nb_table[NyLPC_cMiMicIpNetIf_config_NB_UDPSOCKET_MAX];
+static struct TTcpListenerTable tcp_listener_table[NyLPC_cMiMicIpNetIf_config_TCPLISTENER_MAX];
 
-#define TCP_SOCK_BUF(i) (socket_buffer+(i)*NyLPC_cMiMicIpNetIf_config_TCPSOCKET_RX_BUFFER_SIZE)
-#define UDP_SOCK_BUF(i) (TCP_SOCK_BUF(NyLPC_cMiMicIpNetIf_config_TCPSOCKET_MAX)+(i)*NyLPC_cMiMicIpNetIf_config_UDPSOCKET_RX_BUFFER_SIZE)
+NyLPC_TcMiMicIpTcpListener_t* NyLPC_cMiMicIpNetIf_getListenerByPeerPort(NyLPC_TUInt16 i_port)
+{
+    int i;
+    //一致するポートを検索して、acceptをコールする。
+    for(i=NyLPC_cMiMicIpNetIf_config_TCPLISTENER_MAX-1;i>=0;i--){
+        if((tcp_listener_table[i].flags&FLAGS_USED)==0){
+            continue;
+        }
+        if(tcp_listener_table[i].listener._port!=i_port){
+            continue;
+        }
+        return &tcp_listener_table[i].listener;
+    }
+    return NULL;
+}
+
+/**
+ * 指定番号のTCPポートが未使用かを返す。
+ * @return
+ * i_lport番のポートが未使用であればTRUE
+ */
+NyLPC_TBool NyLPC_cMiMicIpNetIf_isClosedTcpPort(NyLPC_TUInt16 i_lport)
+{
+    int i;
+    //未使用のTCPソケット？
+    for(i=NyLPC_cMiMicIpNetIf_config_TCPSOCKET_MAX-1;i>=0;i--){
+        if(	((tcp_socket_table[i].flags&FLAGS_USED)!=0) &&
+			(NyLPC_cMiMicIpTcpSocket_getLocalPort(&tcp_socket_table[i].socket)==i_lport)&&
+			(!NyLPC_cMiMicIpTcpSocket_isClosed(&tcp_socket_table[i].socket))){
+        	//ポート使用中
+        	return NyLPC_TBool_FALSE;
+        }
+    }
+    for(i=NyLPC_cMiMicIpNetIf_config_TCPLISTENER_MAX-1;i>=0;i--){
+        if(	((tcp_listener_table[i].flags&FLAGS_USED)!=0) &&
+			(NyLPC_cMiMicIpTcpListener_getLocalPort(&tcp_listener_table[i].listener)==i_lport)){
+        	//ポート使用中
+        	return NyLPC_TBool_FALSE;
+        }
+    }
+    return NyLPC_TBool_TRUE;
+}
+
+/**
+ * 条件に一致する、アクティブなTCPソケットオブジェクトを取得します。
+ * この関数は、ローカルIPが一致していると仮定して検索をします。
+ * @param i_rip
+ * リモートIPアドレスを指定します。
+ */
+NyLPC_TcMiMicIpTcpSocket_t* NyLPC_cMiMicIpNetIf_getMatchTcpSocket(
+    NyLPC_TUInt16 i_lport,struct NyLPC_TIPv4Addr i_rip,NyLPC_TUInt16 i_rport)
+{
+    NyLPC_TcMiMicIpTcpSocket_t* tp;
+    int i;
+    //一致するポートを検索
+    for(i=NyLPC_cMiMicIpNetIf_config_TCPSOCKET_MAX-1;i>=0;i--){
+    	if((tcp_socket_table[i].flags&FLAGS_USED)==0){
+    		continue;
+    	}
+		if(NyLPC_cMiMicIpTcpSocket_isClosed(&tcp_socket_table[i].socket)){
+    		continue;
+		}
+		tp=&tcp_socket_table[i].socket;
+        //パラメータの一致チェック
+        if(i_lport!=tp->uip_connr.lport || i_rport!= tp->uip_connr.rport || i_rip.v!=tp->uip_connr.ripaddr.v)
+        {
+            continue;
+        }
+        return tp;
+    }
+    return NULL;
+}
+NyLPC_TcMiMicIpUdpSocket_t* NyLPC_cMiMicIpNetIf_getMatchUdpSocket(
+    NyLPC_TUInt16 i_lport)
+{
+    int i;
+    for(i=NyLPC_cMiMicIpNetIf_config_UDPSOCKET_MAX-1;i>=0;i--){
+    	if((udp_socket_table[i].flags&FLAGS_USED)==0){
+    		continue;
+    	}
+        if(i_lport!=udp_socket_table[i].socket.uip_udp_conn.lport){
+        	continue;
+        }
+    	//unicast
+        return &udp_socket_table[i].socket;
+    }
+    for(i=NyLPC_cMiMicIpNetIf_config_NB_UDPSOCKET_MAX-1;i>=0;i--){
+    	if((udp_socket_nb_table[i].flags&FLAGS_USED)==0){
+    		continue;
+    	}
+        if(i_lport!=udp_socket_nb_table[i].socket.uip_udp_conn.lport){
+    		continue;
+        }
+    	//unicast
+        return &udp_socket_nb_table[i].socket;
+    }
+    return NULL;
+}
+NyLPC_TcMiMicIpUdpSocket_t* NyLPC_cMiMicIpNetIf_getMatchMulticastUdpSocket(
+    const struct NyLPC_TIPv4Addr* i_mcast_ip,
+    NyLPC_TUInt16 i_lport)
+{
+    int i;
+    for(i=NyLPC_cMiMicIpNetIf_config_UDPSOCKET_MAX-1;i>=0;i--){
+    	if((udp_socket_table[i].flags&FLAGS_USED)==0){
+    		continue;
+    	}
+        if(i_lport!=udp_socket_table[i].socket.uip_udp_conn.lport || (!NyLPC_TIPv4Addr_isEqual(i_mcast_ip,&(udp_socket_table[i].socket.uip_udp_conn.mcastaddr))))
+        {
+            continue;
+        }
+        return &udp_socket_table[i].socket;
+    }
+    for(i=NyLPC_cMiMicIpNetIf_config_NB_UDPSOCKET_MAX-1;i>=0;i--){
+    	if((udp_socket_nb_table[i].flags&FLAGS_USED)==0){
+    		continue;
+    	}
+        if(i_lport!=udp_socket_nb_table[i].socket.uip_udp_conn.lport || (!NyLPC_TIPv4Addr_isEqual(i_mcast_ip,&(udp_socket_nb_table[i].socket.uip_udp_conn.mcastaddr))))
+        {
+            continue;
+        }
+        return &udp_socket_nb_table[i].socket;
+    }
+    return NULL;
+}
+
+
+void NyLPC_cMiMicIpNetIf_callPeriodic(void)
+{
+    int i;
+    for(i=NyLPC_cMiMicIpNetIf_config_UDPSOCKET_MAX-1;i>=0;i--){
+    	if((udp_socket_table[i].flags&FLAGS_USED)!=0){
+            NyLPC_cMiMicIpUdpSocket_periodic(&udp_socket_table[i].socket);
+    	}
+    }
+    for(i=NyLPC_cMiMicIpNetIf_config_NB_UDPSOCKET_MAX-1;i>=0;i--){
+    	if((udp_socket_nb_table[i].flags&FLAGS_USED)!=0){
+            NyLPC_cMiMicIpUdpSocket_periodic(&udp_socket_nb_table[i].socket);
+    	}
+    }
+    for(i=NyLPC_cMiMicIpNetIf_config_TCPSOCKET_MAX-1;i>=0;i--){
+    	if((tcp_socket_table[i].flags&FLAGS_USED)!=0){
+            NyLPC_cMiMicIpTcpSocket_periodic(&tcp_socket_table[i].socket);
+    	}
+    }
+}
+void NyLPC_cMiMicIpNetIf_callSocketStart(
+	const NyLPC_TcIPv4Config_t* i_cfg)
+{
+    int i;
+    for(i=NyLPC_cMiMicIpNetIf_config_UDPSOCKET_MAX-1;i>=0;i--){
+    	if((udp_socket_table[i].flags&FLAGS_USED)!=0){
+            NyLPC_cMiMicIpUdpSocket_startService(&udp_socket_table[i].socket,i_cfg);
+    	}
+    }
+    for(i=NyLPC_cMiMicIpNetIf_config_NB_UDPSOCKET_MAX-1;i>=0;i--){
+    	if((udp_socket_nb_table[i].flags&FLAGS_USED)!=0){
+            NyLPC_cMiMicIpUdpSocket_startService(&udp_socket_nb_table[i].socket,i_cfg);
+    	}
+    }
+    for(i=NyLPC_cMiMicIpNetIf_config_TCPSOCKET_MAX-1;i>=0;i--){
+    	if((tcp_socket_table[i].flags&FLAGS_USED)!=0){
+            NyLPC_cMiMicIpTcpSocket_startService(&tcp_socket_table[i].socket,i_cfg);
+    	}
+    }
+}
+void NyLPC_cMiMicIpNetIf_callSocketStop(void)
+{
+    int i;
+    for(i=NyLPC_cMiMicIpNetIf_config_UDPSOCKET_MAX-1;i>=0;i--){
+    	if((udp_socket_table[i].flags&FLAGS_USED)!=0){
+            NyLPC_cMiMicIpUdpSocket_stopService(&udp_socket_table[i].socket);
+    	}
+    }
+    for(i=NyLPC_cMiMicIpNetIf_config_NB_UDPSOCKET_MAX-1;i>=0;i--){
+    	if((udp_socket_nb_table[i].flags&FLAGS_USED)!=0){
+            NyLPC_cMiMicIpUdpSocket_stopService(&udp_socket_nb_table[i].socket);
+    	}
+    }
+    for(i=NyLPC_cMiMicIpNetIf_config_TCPSOCKET_MAX-1;i>=0;i--){
+    	if((tcp_socket_table[i].flags&FLAGS_USED)!=0){
+            NyLPC_cMiMicIpTcpSocket_stopService(&tcp_socket_table[i].socket);
+    	}
+    }
+}
+
+
 
 //--------------------------------------------------------------------------------
 // インタフェイス関数
@@ -635,13 +817,13 @@ static NyLPC_TiTcpSocket_t* createTcpSocetEx(NyLPC_TSocketType i_socktype)
 		//空きソケットの探索
 		for(i=0;i<NyLPC_cMiMicIpNetIf_config_TCPSOCKET_MAX;i++){
 			//未使用なソケットを得る
-			if((TCP_SOCK_FLSGS(i)&FLAGS_USED)==0){
-				if(!NyLPC_cMiMicIpTcpSocket_initialize(TCP_SOCK_TBL(i),TCP_SOCK_BUF(i),NyLPC_cMiMicIpNetIf_config_TCPSOCKET_RX_BUFFER_SIZE)){
+			if((tcp_socket_table[i].flags&FLAGS_USED)==0){
+				if(!NyLPC_cMiMicIpTcpSocket_initialize(&tcp_socket_table[i].socket,tcp_socket_table[i].rxbuf,NyLPC_cMiMicIpNetIf_config_TCPSOCKET_RX_BUFFER_SIZE)){
 					return NULL;
 				}
 				//ソケットを使用中に
-				TCP_SOCK_FLSGS(i)|=FLAGS_USED;
-				return &(TCP_SOCK_TBL(i)->_super._super.tcp_sock);
+				tcp_socket_table[i].flags|=FLAGS_USED;
+				return &(tcp_socket_table[i].socket._super);
 			}
 		}
 		break;
@@ -659,12 +841,12 @@ static NyLPC_TiUdpSocket_t* createUdpSocetEx(NyLPC_TUInt16 i_port,NyLPC_TSocketT
 		//空きソケットの探索
 		for(i=0;i<NyLPC_cMiMicIpNetIf_config_UDPSOCKET_MAX;i++){
 			//未使用なソケットを得る
-			if((UDP_SOCK_FLSGS(i)&FLAGS_USED)==0){
-				if(!NyLPC_cMiMicIpUdpSocket_initialize(UDP_SOCK_TBL(i),i_port,UDP_SOCK_BUF(i),NyLPC_cMiMicIpNetIf_config_UDPSOCKET_RX_BUFFER_SIZE)){
+			if((udp_socket_table[i].flags&FLAGS_USED)==0){
+				if(!NyLPC_cMiMicIpUdpSocket_initialize(&udp_socket_table[i].socket,i_port,udp_socket_table[i].rxbuf,NyLPC_cMiMicIpNetIf_config_UDPSOCKET_RX_BUFFER_SIZE)){
 					return NULL;
 				}
-				UDP_SOCK_FLSGS(i)|=FLAGS_USED;
-				return &(UDP_SOCK_TBL(i)->_super._super.udp_sock);
+				udp_socket_table[i].flags|=FLAGS_USED;
+				return &(udp_socket_table[i].socket._super);
 			}
 		}
 		break;
@@ -672,12 +854,12 @@ static NyLPC_TiUdpSocket_t* createUdpSocetEx(NyLPC_TUInt16 i_port,NyLPC_TSocketT
 		//空きソケットの探索
 		for(i=0;i<NyLPC_cMiMicIpNetIf_config_NB_UDPSOCKET_MAX;i++){
 			//未使用なソケットを得る
-			if((UDP_NB_SOCK_FLSGS(i)&FLAGS_USED)==0){
-				if(!NyLPC_cMiMicIpUdpSocket_initialize(UDP_NB_SOCK_TBL(i),i_port,NULL,0)){
+			if((udp_socket_nb_table[i].flags&FLAGS_USED)==0){
+				if(!NyLPC_cMiMicIpUdpSocket_initialize(&udp_socket_nb_table[i].socket,i_port,NULL,0)){
 					return NULL;
 				}
-				UDP_NB_SOCK_FLSGS(i)|=FLAGS_USED;
-				return &(UDP_NB_SOCK_TBL(i)->_super._super.udp_sock);
+				udp_socket_nb_table[i].flags|=FLAGS_USED;
+				return &(udp_socket_nb_table[i].socket._super);
 			}
 		}
 		break;
@@ -692,13 +874,13 @@ static NyLPC_TiTcpListener_t* createTcpListener(NyLPC_TUInt16 i_port)
 	//空きソケットの探索
 	for(i=0;i<NyLPC_cMiMicIpNetIf_config_TCPLISTENER_MAX;i++){
 		//未使用なソケットを得る
-		if((TCP_LISTENER_FLSGS(i)&FLAGS_USED)==0){
-			if(!NyLPC_cMiMicIpTcpListener_initialize(TCP_LISTENER_TBL(i),i_port)){
+		if((tcp_listener_table[i].flags&FLAGS_USED)==0){
+			if(!NyLPC_cMiMicIpTcpListener_initialize(&tcp_listener_table[i].listener,i_port)){
 				return NULL;
 			}
 			//ソケットを使用中に
-			TCP_LISTENER_FLSGS(i)|=FLAGS_USED;
-			return &(TCP_LISTENER_TBL(i)->_super._super.tcp_listener);
+			tcp_listener_table[i].flags|=FLAGS_USED;
+			return &(tcp_listener_table[i].listener._super);
 		}
 	}
 	return NULL;
@@ -725,8 +907,8 @@ void NyLPC_cMiMicIpNetIf_releaseTcpSocketMemory(const NyLPC_TcMiMicIpTcpSocket_t
 	NyLPC_TUInt16 i;
 	//空きソケットの探索
 	for(i=0;i<NyLPC_cMiMicIpNetIf_config_TCPSOCKET_MAX;i++){
-		if((TCP_SOCK_TBL(i))==i_inst){
-			TCP_SOCK_FLSGS(i)&=~FLAGS_USED;
+		if((&tcp_socket_table[i].socket)==i_inst){
+			tcp_socket_table[i].flags&=~FLAGS_USED;
 			return;
 		}
 	}
@@ -736,14 +918,14 @@ void NyLPC_cMiMicIpNetIf_releaseUdpSocketMemory(const NyLPC_TcMiMicIpUdpSocket_t
 {
 	NyLPC_TUInt16 i;
 	for(i=0;i<NyLPC_cMiMicIpNetIf_config_UDPSOCKET_MAX;i++){
-		if((UDP_SOCK_TBL(i))==i_inst){
-			UDP_SOCK_FLSGS(i)&=~FLAGS_USED;
+		if((&udp_socket_table[i].socket)==i_inst){
+			udp_socket_table[i].flags&=~FLAGS_USED;
 			return;
 		}
 	}
 	for(i=0;i<NyLPC_cMiMicIpNetIf_config_NB_UDPSOCKET_MAX;i++){
-		if((UDP_NB_SOCK_TBL(i))==i_inst){
-			UDP_NB_SOCK_FLSGS(i)&=~FLAGS_USED;
+		if((&udp_socket_nb_table[i].socket)==i_inst){
+			udp_socket_nb_table[i].flags&=~FLAGS_USED;
 			return;
 		}
 	}
@@ -754,8 +936,8 @@ void NyLPC_cMiMicIpNetIf_releaseTcpListenerMemory(const NyLPC_TcMiMicIpTcpListen
 	NyLPC_TUInt16 i;
 	//空きソケットの探索
 	for(i=0;i<NyLPC_cMiMicIpNetIf_config_TCPLISTENER_MAX;i++){
-		if((TCP_LISTENER_TBL(i))==i_inst){
-			TCP_LISTENER_FLSGS(i)&=~FLAGS_USED;
+		if((&tcp_listener_table[i].listener)==i_inst){
+			tcp_listener_table[i].flags&=~FLAGS_USED;
 			return;
 		}
 	}

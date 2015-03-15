@@ -81,10 +81,10 @@ static NyLPC_TBool psend(NyLPC_TiUdpSocket_t* i_inst,const struct NyLPC_TIPv4Add
 static NyLPC_TInt32 send(NyLPC_TiUdpSocket_t* i_inst,const struct NyLPC_TIPv4Addr* i_addr,NyLPC_TUInt16 i_port,const void* i_buf_ptr,NyLPC_TInt32 i_len,NyLPC_TUInt32 i_wait_in_msec);
 static void setOnRxHandler(NyLPC_TiUdpSocket_t* i_inst,NyLPC_TiUdpSocket_onRxHandler i_handler);
 static void setOnPeriodicHandler(NyLPC_TiUdpSocket_t* i_inst,NyLPC_TiUdpSocket_onPeriodicHandler i_handler);
-static struct NyLPC_TIPv4Addr* getSockIP(const NyLPC_TiUdpSocket_t* i_inst);
+static const struct NyLPC_TIPv4Addr* getSockIP(const NyLPC_TiUdpSocket_t* i_inst);
 static void finalize(NyLPC_TiUdpSocket_t* i_inst);
 
-const struct NyLPC_TiUdpSocket_Interface interface=
+static const struct NyLPC_TiUdpSocket_Interface interface=
 {
 	joinMulticast,
 	setBroadcast,
@@ -111,9 +111,8 @@ const struct NyLPC_TiUdpSocket_Interface interface=
 NyLPC_TBool NyLPC_cMiMicIpUdpSocket_initialize(NyLPC_TcMiMicIpUdpSocket_t* i_inst,NyLPC_TUInt16 i_port,void* i_rbuf,NyLPC_TUInt16 i_rbuf_len)
 {
 	NyLPC_TcMiMicIpNetIf_t* srv=_NyLPC_TcMiMicIpNetIf_inst;
-	i_inst->_super._super.udp_sock._interface=&interface;
-	i_inst->_super._super.udp_sock._tag=NULL;
-    NyLPC_cMiMicIpBaseSocket_initialize(&(i_inst->_super),NyLPC_TcMiMicIpBaseSocket_TYPEID_UDP_SOCK);
+	i_inst->_super._interface=&interface;
+	i_inst->_super._tag=NULL;
     //uipサービスは初期化済であること。
     NyLPC_Assert(NyLPC_cMiMicIpNetIf_isInitService());
     i_inst->_smutex=NyLPC_cIPv4_getSockMutex(&(srv->_tcpv4));
@@ -125,7 +124,7 @@ NyLPC_TBool NyLPC_cMiMicIpUdpSocket_initialize(NyLPC_TcMiMicIpUdpSocket_t* i_ins
 
     NyLPC_cFifoBuffer_initialize(&(i_inst->rxbuf),i_rbuf,i_rbuf_len);
     //管理リストへ登録。
-    return NyLPC_cIPv4_addSocket(&(srv->_tcpv4),&(i_inst->_super));
+    return NyLPC_TBool_TRUE;
 }
 
 
@@ -217,15 +216,9 @@ DROP:
 
 static void finalize(NyLPC_TiUdpSocket_t* i_inst)
 {
-	NyLPC_TcMiMicIpNetIf_t* srv=_NyLPC_TcMiMicIpNetIf_inst;
     NyLPC_Assert(NyLPC_cMiMicIpNetIf_isInitService());
-    //uipサービスは初期化済であること。
-    if(!NyLPC_cIPv4_removeSocket(&(srv->_tcpv4),&(((NyLPC_TcMiMicIpUdpSocket_t*)i_inst)->_super))){
-        //削除失敗、それは死を意味する。
-        NyLPC_Abort();
-    }
+
     NyLPC_cFifoBuffer_finalize(&(i_inst->rxbuf));
-    NyLPC_cMiMicIpBaseSocket_finalize(&(((NyLPC_TcMiMicIpUdpSocket_t*)i_inst)->_super));
     NyLPC_cMiMicIpNetIf_releaseUdpSocketMemory((NyLPC_TcMiMicIpUdpSocket_t*)i_inst);
     return;
 }
@@ -265,7 +258,6 @@ static NyLPC_TInt32 precv(NyLPC_TiUdpSocket_t* i_inst,const void** o_buf_ptr,con
         lockResource(inst);
         rlen=NyLPC_cFifoBuffer_getLength(&(inst->rxbuf));
         //MUTEX UNLOCK
-        unlockResource(inst);
         if(rlen>0){
             //受信キューにデータがあれば返す。
             b=(char*)NyLPC_cFifoBuffer_getPtr(&(inst->rxbuf));
@@ -274,8 +266,11 @@ static NyLPC_TInt32 precv(NyLPC_TiUdpSocket_t* i_inst,const void** o_buf_ptr,con
             if(o_info!=NULL){
                 *o_info=rh;
             }
+            unlockResource(inst);
+            NyLPC_cStopwatch_finalize(&sw);
             return rh->size;
         }
+        unlockResource(inst);
         //タスクスイッチ
         NyLPC_cThread_yield();
     };
@@ -291,12 +286,13 @@ static void pseek(NyLPC_TiUdpSocket_t* i_inst)
     NyLPC_TUInt16 s;
     const struct NyLPC_TIPv4RxInfo* rh;
     //シークサイズを決定
+    lockResource(inst);
     s=NyLPC_cFifoBuffer_getLength(&(inst->rxbuf));
-    if(s==0){
-        return;
+    if(s>0){
+		rh=(const struct NyLPC_TIPv4RxInfo*)NyLPC_cFifoBuffer_getPtr(&(inst->rxbuf));
+		NyLPC_cFifoBuffer_pop(&(inst->rxbuf),rh->size+sizeof(struct NyLPC_TIPv4RxInfo));
     }
-    rh=(const struct NyLPC_TIPv4RxInfo*)NyLPC_cFifoBuffer_getPtr(&(inst->rxbuf));
-    NyLPC_cFifoBuffer_pop(&(inst->rxbuf),rh->size+sizeof(struct NyLPC_TIPv4RxInfo));
+    unlockResource(inst);
 }
 
 /**
@@ -410,7 +406,7 @@ static void setOnPeriodicHandler(NyLPC_TiUdpSocket_t* i_inst,NyLPC_TiUdpSocket_o
 	NyLPC_TcMiMicIpUdpSocket_t* inst=(NyLPC_TcMiMicIpUdpSocket_t*)i_inst;
 	inst->as_handler.periodic=i_handler;
 }
-static struct NyLPC_TIPv4Addr* getSockIP(const NyLPC_TiUdpSocket_t* i_inst)
+static const struct NyLPC_TIPv4Addr* getSockIP(const NyLPC_TiUdpSocket_t* i_inst)
 {
 	NyLPC_TcMiMicIpUdpSocket_t* inst=(NyLPC_TcMiMicIpUdpSocket_t*)i_inst;
 	return &inst->uip_udp_conn.lipaddr;

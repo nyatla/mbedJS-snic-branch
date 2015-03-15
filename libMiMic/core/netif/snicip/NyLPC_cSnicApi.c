@@ -6,10 +6,7 @@
  */
 #include "NyLPC_cSnicNetIf_protected.h"
 #include "NyLPC_cSnicApi.h"
-#include "NyLPC_iSnicDevice.h"
 #include "NyLPC_Snic_types.h"
-#include "NyLPC_os.h"
-#include "NyLPC_net.h"
 
 
 #define UART_CMD_SID_RESPONSE_BIT_MASK	0x80
@@ -52,20 +49,45 @@
 #define UART_CMD_RES_SNIC_SUCCESS           0x00
 #define UART_CMD_RES_SNIC_FAIL              0x01
 
+#define LOCK_RESOURCE(i)
+#define UNLOCK_RESOURCE(i)
 
 NyLPC_TBool NyLPC_cSnicApi_initialize(NyLPC_TcSnicApi_t* i_inst)
 {
+	if(!NyLPC_cMutex_initialize(&i_inst->sock_res_mutex)){
+		return NyLPC_TBool_FALSE;
+	}
+
 	return NyLPC_TBool_TRUE;
 }
 void NyLPC_cSnicApi_finalize(NyLPC_TcSnicApi_t* i_inst)
 {
-
+	NyLPC_cMutex_finalize(i_inst->sock_res_mutex);
 }
+
+/**ポインタテーブルからポインタを探す*/
+NyLPC_TInt16 findPtr(void** i_tbl,NyLPC_TUInt16 i_size,const void* i_find)
+{
+	NyLPC_TUInt16 i;
+	for(i=0;i<i_size;i++){
+		if(i_tbl[i]==i_find){
+			return i;
+		}
+	}
+	return -1;
+}
+
+
+
+
+
+
+
 
 static void sendCmd(NyLPC_TcSnicApi_t* i_inst,NyLPC_TUInt8* i_data,NyLPC_TUInt16 i_data_len)
 {
 	i_inst->_signal=NyLPC_TUInt8_FALSE;
-	NyLPC_cSnicNetIf_sendShortPayload(i_data,SNIC_UART_CMD_ID_SNIC,4);
+	NyLPC_cSnicNetIf_sendShortPayload(i_data,SNIC_UART_CMD_ID_SNIC,i_data_len);
 	//シグナル待ち
 	do{
 		NyLPC_cThread_yield();
@@ -99,7 +121,7 @@ NyLPC_TBool NyLPC_cSnicApi_cleanUp(NyLPC_TcSnicApi_t* i_inst)
 }
 NyLPC_TBool NyLPC_cSnicApi_configure(NyLPC_TcSnicApi_t* i_inst,const struct NyLPC_TIPv4Addr* i_addr,const struct NyLPC_TIPv4Addr* i_netmask,const struct NyLPC_TIPv4Addr* i_gateway)
 {
-	NyLPC_TUInt8 data[2+1+4*3];
+	NyLPC_TUInt8 data[2+2+4*3];
 	i_inst->last_cmd=UART_CMD_SID_SNIC_IP_CONFIG_REQ;
 	i_inst->last_seq=NyLPC_cSnicNetIf_regieterObject(i_inst);
 	data[0]=i_inst->last_cmd;
@@ -126,35 +148,59 @@ static inline NyLPC_TBool _createSocketX(NyLPC_TcSnicApi_t* i_inst,NyLPC_TUInt8 
 	data[0]=i_inst->last_cmd;
 	data[1]=i_inst->last_seq;
 	data[2]=i_bind_option;
-	memcpy(&data[3],&(i_local_ip->v),4);
-	data[7]=(NyLPC_TUInt8)((i_local_port>>8)&0xff);
-	data[8]=(NyLPC_TUInt8)((i_local_port>>0)&0xff);
-	sendCmd(i_inst,data,9);
+	if(i_bind_option==0){
+		memcpy(&data[3],&(i_local_ip->v),4);
+		data[7]=(NyLPC_TUInt8)((i_local_port>>8)&0xff);
+		data[8]=(NyLPC_TUInt8)((i_local_port>>0)&0xff);
+	}
+	sendCmd(i_inst,data,(i_bind_option==0)?9:3);
 	*i_socket=i_inst->_response.rawbuf.u8[0];
 	return i_inst->last_status==UART_CMD_RES_SNIC_SUCCESS;
 }
-NyLPC_TBool NyLPC_cSnicApi_createTcpSocket(NyLPC_TcSnicApi_t* i_inst,NyLPC_TUInt8 i_cmd,NyLPC_TUInt8 i_bind_option,const struct NyLPC_TIPv4Addr* i_local_ip,NyLPC_TUInt16 i_local_port,NyLPC_TUInt8* i_socket)
+NyLPC_TBool NyLPC_cSnicApi_createTcpSocket(NyLPC_TcSnicApi_t* i_inst,NyLPC_TUInt8 i_bind_option,const struct NyLPC_TIPv4Addr* i_local_ip,NyLPC_TUInt16 i_local_port,NyLPC_TUInt8* i_socket)
 {
 	return _createSocketX(i_inst,UART_CMD_SID_SNIC_TCP_CREATE_SOCKET_REQ,i_bind_option,i_local_ip,i_local_port,i_socket);
 }
-NyLPC_TBool NyLPC_cSnicApi_createUdpSocket(NyLPC_TcSnicApi_t* i_inst,NyLPC_TUInt8 i_cmd,NyLPC_TUInt8 i_bind_option,const struct NyLPC_TIPv4Addr* i_local_ip,NyLPC_TUInt16 i_local_port,NyLPC_TUInt8* i_socket)
+NyLPC_TBool NyLPC_cSnicApi_createUdpSocket(NyLPC_TcSnicApi_t* i_inst,NyLPC_TUInt8 i_bind_option,const struct NyLPC_TIPv4Addr* i_local_ip,NyLPC_TUInt16 i_local_port,NyLPC_TUInt8* i_socket)
 {
 	return _createSocketX(i_inst,UART_CMD_SID_SNIC_UDP_CREATE_SOCKET_REQ,i_bind_option,i_local_ip,i_local_port,i_socket);
+}
+NyLPC_TBool NyLPC_cSnicApi_connectToServer(NyLPC_TcSnicApi_t* i_inst,NyLPC_TUInt8 i_socket,const struct NyLPC_TIPv4Addr* i_local_ip,NyLPC_TUInt16 i_local_port,NyLPC_TUInt16 i_recv_buf_size,NyLPC_TUInt16 i_timeout,struct NyLPC_TSnicApi_ConnectToServerResult* i_result)
+{
+	NyLPC_TUInt8 data[12];
+	i_inst->last_cmd=UART_CMD_SID_SNIC_TCP_CONNECT_TO_SERVER_REQ;
+	i_inst->last_seq=NyLPC_cSnicNetIf_regieterObject(i_inst);
+	data[0]=i_inst->last_cmd;
+	data[1]=i_inst->last_seq;
+	data[2]=i_socket;
+	memcpy(&data[3],i_local_ip,4);
+	data[7]=(NyLPC_TUInt8)((i_recv_buf_size>>8)&0xff);
+	data[8]=(NyLPC_TUInt8)((i_recv_buf_size>>0)&0xff);
+	data[9]=(NyLPC_TUInt8)((i_recv_buf_size>>8)&0xff);
+	data[10]=(NyLPC_TUInt8)((i_recv_buf_size>>8)&0xff);
+	data[11]=(NyLPC_TUInt8)((i_timeout<1000)?1:(i_timeout/1000));
+	sendCmd(i_inst,data,12);
+	if(i_result!=NULL){
+		i_result->recv_buf_size=i_inst->_response.rawbuf.u16[0];
+	}
+	return i_inst->last_status==UART_CMD_RES_SNIC_SUCCESS;
+
 }
 
 
 NyLPC_TBool NyLPC_cSnicApi_createTcpConnectionServer(NyLPC_TcSnicApi_t* i_inst,NyLPC_TUInt8 i_socket,NyLPC_TUInt16 i_recv_buf_size,NyLPC_TUInt8 i_maximum_connection,struct NyLPC_TSnicApi_CreateTcpConnectionServerResult* i_result)
 {
-	NyLPC_TUInt8 data[2+1+4+2];
+	NyLPC_TUInt8 data[6];
 	i_inst->last_cmd=UART_CMD_SID_SNIC_TCP_CREATE_CONNECTION_REQ;
 	i_inst->last_seq=NyLPC_cSnicNetIf_regieterObject(i_inst);
 	i_inst->_response.create_tcp_connection_server=i_result;
 	data[0]=i_inst->last_cmd;
 	data[1]=i_inst->last_seq;
-	data[2]=(NyLPC_TUInt8)((i_recv_buf_size>>8)&0xff);
-	data[3]=(NyLPC_TUInt8)((i_recv_buf_size>>0)&0xff);
-	data[4]=i_maximum_connection;
-	sendCmd(i_inst,data,5);
+	data[2]=i_socket;
+	data[3]=(NyLPC_TUInt8)((i_recv_buf_size>>8)&0xff);
+	data[4]=(NyLPC_TUInt8)((i_recv_buf_size>>0)&0xff);
+	data[5]=i_maximum_connection;
+	sendCmd(i_inst,data,6);
 	return i_inst->last_status==UART_CMD_RES_SNIC_SUCCESS;
 }
 NyLPC_TBool NyLPC_cSnicApi_sendFromSocket(NyLPC_TcSnicApi_t* i_inst,NyLPC_TUInt8 i_socket,NyLPC_TUInt8 i_option,const void* i_payload,NyLPC_TUInt16 i_payload_length,struct NyLPC_TSnicApi_SendFromSocketResult* i_result)
@@ -194,7 +240,7 @@ NyLPC_TBool NyLPC_cSnicApi_closeSocket(NyLPC_TcSnicApi_t* i_inst,NyLPC_TUInt8 i_
 }
 
 
-NyLPC_TBool NyLPC_cSnicApi_sendUdpPacketFromSocket(NyLPC_TcSnicApi_t* i_inst,NyLPC_TUInt8 i_socket,NyLPC_TUInt8 i_connection_mode,const struct NyLPC_TIPv4Addr* i_remote_ip,NyLPC_TUInt16 i_remote_port,const void* i_payload,NyLPC_TUInt16 i_payload_length,struct NyLPC_TSnicApi_SendUdpPacketResult* i_result)
+NyLPC_TBool NyLPC_cSnicApi_sendUdpPacketFromSocket(NyLPC_TcSnicApi_t* i_inst,NyLPC_TUInt8 i_socket,NyLPC_TUInt8 i_connection_mode,const struct NyLPC_TIPv4Addr* i_remote_ip,NyLPC_TUInt16 i_remote_port,const void* i_payload,NyLPC_TUInt16 i_payload_length,struct NyLPC_TSnicApi_SendUdpPacketFromSocketResult* i_result)
 {
 	NyLPC_TUInt8 data[2+4+6];
 	i_inst->last_cmd=UART_CMD_SID_SNIC_UDP_SEND_FROM_SOCKET_REQ;
@@ -222,7 +268,7 @@ NyLPC_TBool NyLPC_cSnicApi_sendUdpPacketFromSocket(NyLPC_TcSnicApi_t* i_inst,NyL
 	NyLPC_cSnicNetIf_unregieterObject(i_inst);
 	return i_inst->last_status==UART_CMD_RES_SNIC_SUCCESS;
 }
-NyLPC_TBool NyLPC_cSnicApi_startUdpReceiveOnSocket(NyLPC_TcSnicApi_t* i_inst,NyLPC_TUInt8 i_socket,NyLPC_TUInt16 i_recv_buffer_size,struct NyLPC_TSnicApi_StartUdpReceiveOnSocketResult* i_result)
+NyLPC_TBool NyLPC_cSnicApi_startUdpReceiveOnSocket(NyLPC_TcSnicApi_t* i_inst,NyLPC_TUInt8 i_socket,NyLPC_TUInt32 i_recv_buffer_size,struct NyLPC_TSnicApi_StartUdpReceiveOnSocketResult* i_result)
 {
 	NyLPC_TUInt8 data[2+3];
 	i_inst->last_cmd=UART_CMD_SID_SNIC_UDP_START_RECV_REQ;
@@ -264,15 +310,96 @@ NyLPC_TBool NyLPC_cSnicApi_setSocketOption(NyLPC_TcSnicApi_t* i_inst,NyLPC_TUInt
 	return i_inst->last_status==UART_CMD_RES_SNIC_SUCCESS;
 }
 
+NyLPC_TBool NyLPC_cSnicApi_getDhcpInfo(NyLPC_TcSnicApi_t* i_inst,struct NyLPC_TSnicApi_GetDhcpInfoResult* i_result)
+{
+	NyLPC_TUInt8 data[3];
+	i_inst->last_cmd=UART_CMD_SID_SNIC_GET_DHCP_INFO_REQ;
+	i_inst->last_seq=NyLPC_cSnicNetIf_regieterObject(i_inst);
+	i_inst->_response.get_dhcp_info=i_result;
+	data[0]=i_inst->last_cmd;
+	data[1]=i_inst->last_seq;
+	data[2]=0;
+	sendCmd(i_inst,data,3);
+	return i_inst->last_status==UART_CMD_RES_SNIC_SUCCESS;
+}
 
-/**
- * FALSEを返却したら次のSOMまでまつよ
- */
-NyLPC_TBool NyLPC_cSnicApi_rxHandler(struct NyLPC_TiSnicDevice_Interface* i_dev)
+static NyLPC_TBool indicationHandler(NyLPC_TcSnicApi_t* i_inst,struct NyLPC_TiSnicDevice_Interface* i_dev,NyLPC_TUInt8 i_cmd)
+{
+	NyLPC_TcSnicTcpSocket_t* tcp_sock;
+	NyLPC_TcSnicUdpSocket_t* udp_sock;
+	NyLPC_TcSnicTcpListener_t* tcp_listener;
+	NyLPC_TUInt8 buf[10];
+	buf[0]=i_cmd;
+	switch(buf[0]){
+	case UART_CMD_SID_SNIC_TCP_CLIENT_SOCKET_IND:
+		//ソケットきたよ通知
+		if(!NyLPC_cSnicNetIf_readPayload(&buf[1],2)){
+			goto DROP;
+		}
+		tcp_listener=NyLPC_cSnicNetIf_getTcpListenerBySocket(buf[2]);
+		if(tcp_listener!=NULL){
+			if(NyLPC_cSnicTcpListener_onClientSocketInd(tcp_listener,i_dev)){
+				break;
+			}
+		}else{
+			//読み飛ばし
+			NyLPC_cSnicNetIf_seekPayload(7);
+			break;
+		}
+		goto DROP;
+	case UART_CMD_SID_SNIC_TCP_CONNECTION_STATUS_IND:
+		goto DROP;
+	case UART_CMD_SID_SNIC_CONNECTION_RECV_IND:
+		if(!NyLPC_cSnicNetIf_readPayload(&buf[1],2)){
+			goto DROP;
+		}
+		tcp_sock=NyLPC_cSnicNetIf_getTcpSocketBySocket(buf[2]);
+		if(tcp_sock!=NULL){
+			if(NyLPC_cSnicTcpSocket_onConnectionRecvInd(tcp_sock,i_dev)){
+				break;
+			}
+		}else{
+			//華麗にスルーする。
+			if(NyLPC_cSnicNetIf_readPayload(&buf[0],2)){
+				//要らないパケットの吸出し
+				NyLPC_cSnicNetIf_seekPayload((((NyLPC_TUInt16)buf[0])<<8)|buf[1]);
+				break;
+			}
+		}
+		goto DROP;
+	case UART_CMD_SID_SNIC_UDP_RECV_IND:
+		if(!NyLPC_cSnicNetIf_readPayload(&buf[1],2)){
+			goto DROP;
+		}
+		udp_sock=NyLPC_cSnicNetIf_getUdpSocketBySocket(buf[2]);
+		if(udp_sock!=NULL){
+			if(NyLPC_cSnicUdpSocket_onConnectionRecvInd(udp_sock,i_dev)){
+				break;
+			}
+		}else{
+			//華麗にスルーする。
+			if(NyLPC_cSnicNetIf_readPayload(&buf[0],2)){
+				//要らないパケットの吸出し
+				NyLPC_cSnicNetIf_seekPayload((((NyLPC_TUInt16)buf[0])<<8)|buf[1]);
+				break;
+			}
+		}
+		goto DROP;
+	case UART_CMD_SID_SNIC_ARP_REPLY_IND:
+		goto DROP;
+	case UART_CMD_SID_SNIC_HTTP_RSP_IND:
+		goto DROP;
+	}
+	return NyLPC_TBool_TRUE;
+DROP:
+	return NyLPC_TBool_FALSE;
+}
+static NyLPC_TBool requestHandler(struct NyLPC_TiSnicDevice_Interface* i_dev,NyLPC_TUInt8 i_cmd)
 {
 	NyLPC_TcSnicApi_t* inst;
-	NyLPC_TUInt8 buf[4];//CMD,SEQ,RES
-	if(!NyLPC_cSnicNetIf_readPayload(buf,3)){
+	NyLPC_TUInt8 buf[24];//CMD,SEQ,RES
+	buf[0]=i_cmd;
+	if(!NyLPC_cSnicNetIf_readPayload(&buf[1],2)){
 		goto DROP;
 	}
 	//SEQ->INST変換
@@ -292,9 +419,26 @@ NyLPC_TBool NyLPC_cSnicApi_rxHandler(struct NyLPC_TiSnicDevice_Interface* i_dev)
 	inst->last_status=buf[2];
 	//リクエストタイプごとの処理
 	switch(buf[0]){
+	case (UART_CMD_SID_SNIC_GET_DHCP_INFO_REQ|UART_CMD_SID_RESPONSE_BIT_MASK):
+		if(inst->last_status==UART_CMD_RES_SNIC_SUCCESS){
+			if(NyLPC_cSnicNetIf_readPayload(buf,6+4+4+4)){
+				if(inst->_response.get_dhcp_info!=NULL){
+					memcpy(&inst->_response.get_dhcp_info->macaddr,&buf[0],8);
+					memcpy(&inst->_response.get_dhcp_info->ipaddr,&buf[6],4);
+					memcpy(&inst->_response.get_dhcp_info->netmask,&buf[10],4);
+					memcpy(&inst->_response.get_dhcp_info->gateway,&buf[14],4);
+				}
+				inst->_signal=NyLPC_TUInt8_TRUE;//シグナル設定
+				NyLPC_cSnicNetIf_unlockObject(inst);
+				return NyLPC_TBool_TRUE;
+			}
+		}
+		goto DROP_UNLOCK;
+
 	case (UART_CMD_SID_SNIC_UDP_START_RECV_REQ|UART_CMD_SID_RESPONSE_BIT_MASK):
 	case (UART_CMD_SID_SNIC_UDP_SEND_FROM_SOCKET_REQ|UART_CMD_SID_RESPONSE_BIT_MASK):
 	case (UART_CMD_SID_SNIC_SEND_FROM_SOCKET_REQ|UART_CMD_SID_RESPONSE_BIT_MASK):
+	case UART_CMD_SID_SNIC_TCP_CONNECT_TO_SERVER_REQ|UART_CMD_SID_RESPONSE_BIT_MASK:
 		if(inst->last_status==UART_CMD_RES_SNIC_SUCCESS){
 			if(NyLPC_cSnicNetIf_readPayload(buf,2)){
 				inst->_response.rawbuf.u16[0]=(((NyLPC_TUInt16)buf[0])<<8)|buf[1];
@@ -307,8 +451,10 @@ NyLPC_TBool NyLPC_cSnicApi_rxHandler(struct NyLPC_TiSnicDevice_Interface* i_dev)
 	case (UART_CMD_SID_SNIC_TCP_CREATE_CONNECTION_REQ|UART_CMD_SID_RESPONSE_BIT_MASK):
 		if(inst->last_status==UART_CMD_RES_SNIC_SUCCESS){
 			if(NyLPC_cSnicNetIf_readPayload(buf,3)){
-				inst->_response.create_tcp_connection_server->buffer_size=(((NyLPC_TUInt16)buf[0])<<8)|buf[1];
-				inst->_response.create_tcp_connection_server->maximum_client=buf[2];
+				if(inst->_response.create_tcp_connection_server!=NULL){
+					inst->_response.create_tcp_connection_server->buffer_size=(((NyLPC_TUInt16)buf[0])<<8)|buf[1];
+					inst->_response.create_tcp_connection_server->maximum_client=buf[2];
+				}
 				inst->_signal=NyLPC_TUInt8_TRUE;//シグナル設定
 				NyLPC_cSnicNetIf_unlockObject(inst);
 				return NyLPC_TBool_TRUE;
@@ -357,4 +503,39 @@ DROP_UNLOCK:
 	NyLPC_cSnicNetIf_unlockObject(inst);
 DROP:
 	return NyLPC_TBool_FALSE;
+
+}
+/**
+ * FALSEを返却したら次のSOMまでまつよ
+ */
+NyLPC_TBool NyLPC_cSnicApi_rxHandler(NyLPC_TcSnicApi_t* i_inst,struct NyLPC_TiSnicDevice_Interface* i_dev)
+{
+	NyLPC_TUInt8 buf[1];
+	if(!NyLPC_cSnicNetIf_readPayload(buf,1)){
+		return NyLPC_TBool_FALSE;
+	}
+	if(buf[0]&0x20){
+		return indicationHandler(i_inst,i_dev,buf[0]);
+	}else{
+		return requestHandler(i_dev,buf[0]);
+	}
+}
+
+/**
+ * メッセージハンドラで無視されるSocketClose
+ */
+void NyLPC_cSnicApi_sysCloseSocket(NyLPC_TUInt8 i_sock)
+{
+	NyLPC_TUInt8 buf[3];
+	buf[0]=UART_CMD_SID_SNIC_CLOSE_SOCKET_REQ;
+	buf[1]=0;//コマンド待機しないスペシャル値
+	buf[2]=i_sock;
+	NyLPC_cSnicNetIf_sendShortPayload(buf,SNIC_UART_CMD_ID_SNIC,3);
+}
+void NyLPC_cSnicApi_sendIndicateConfirm(NyLPC_TUInt8 i_cmd,NyLPC_TUInt8 i_seq)
+{
+	NyLPC_TUInt8 buf[3];
+	buf[0]=UART_CMD_SID_SNIC_CLOSE_SOCKET_REQ;
+	buf[1]=i_seq;//コマンド待機しないスペシャル値
+	NyLPC_cSnicNetIf_sendShortPayload(buf,SNIC_UART_CMD_ID_SNIC,2);
 }

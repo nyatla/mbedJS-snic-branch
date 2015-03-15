@@ -20,9 +20,9 @@ namespace MiMic
     UdpSocket::UdpSocket(unsigned short i_port,bool i_nobuffer)
     {
     	if(i_nobuffer){
-        	this->_inst=NyLPC_cNetIf_createUdpSocketEx(i_port,NyLPC_TSocketType_UDP_NOBUF);
+        	this->_inst=NyLPC_cNet_createUdpSocketEx(i_port,NyLPC_TSocketType_UDP_NOBUF);
     	}else{
-    		this->_inst=NyLPC_cNetIf_createUdpSocketEx(i_port,NyLPC_TSocketType_UDP_NORMAL);
+    		this->_inst=NyLPC_cNet_createUdpSocketEx(i_port,NyLPC_TSocketType_UDP_NORMAL);
     	}
     	if(this->_inst==NULL){
     		mbed_die();

@@ -72,6 +72,12 @@ struct NyLPC_TcMiMicIpNetIf
 extern NyLPC_TcMiMicIpNetIf_t* _NyLPC_TcMiMicIpNetIf_inst;
 
 /**
+ * @param i_mac_addr
+ * システムで唯一のUIPサービスを初期化します。1度だけ実行できます。
+ */
+NyLPC_TBool NyLPC_cMiMicIpNetIf_initialize(NyLPC_TcMiMicIpNetIf_t* i_inst);
+
+/**
  * サービスが初期化済みならtrueです。 - true if service was initialized.
  */
 #define NyLPC_cMiMicIpNetIf_isInitService() (_NyLPC_TcMiMicIpNetIf_inst!=NULL)
@@ -160,6 +166,19 @@ NyLPC_TBool NyLPC_cMiMicIpNetIf_hasArpInfo(const struct NyLPC_TIPv4Addr* i_addr)
 void NyLPC_cMiMicIpNetIf_releaseTcpSocketMemory(const NyLPC_TcMiMicIpTcpSocket_t* i_inst);
 void NyLPC_cMiMicIpNetIf_releaseUdpSocketMemory(const NyLPC_TcMiMicIpUdpSocket_t* i_inst);
 void NyLPC_cMiMicIpNetIf_releaseTcpListenerMemory(const NyLPC_TcMiMicIpTcpListener_t* i_inst);
+
+NyLPC_TcMiMicIpTcpListener_t* NyLPC_cMiMicIpNetIf_getListenerByPeerPort(NyLPC_TUInt16 i_port);
+NyLPC_TcMiMicIpUdpSocket_t* NyLPC_cMiMicIpNetIf_getMatchUdpSocket(NyLPC_TUInt16 i_lport);
+NyLPC_TBool NyLPC_cMiMicIpNetIf_isClosedTcpPort(NyLPC_TUInt16 i_lport);
+NyLPC_TcMiMicIpUdpSocket_t* NyLPC_cMiMicIpNetIf_getMatchMulticastUdpSocket(
+    const struct NyLPC_TIPv4Addr* i_mcast_ip,NyLPC_TUInt16 i_lport);
+NyLPC_TcMiMicIpTcpSocket_t* NyLPC_cMiMicIpNetIf_getMatchTcpSocket(
+    NyLPC_TUInt16 i_lport,struct NyLPC_TIPv4Addr i_rip,NyLPC_TUInt16 i_rport);
+void NyLPC_cMiMicIpNetIf_callPeriodic(void);
+void NyLPC_cMiMicIpNetIf_callSocketStart(const NyLPC_TcIPv4Config_t* i_cfg);
+void NyLPC_cMiMicIpNetIf_callSocketStop(void);
+
+
 
 
 

@@ -64,6 +64,7 @@ NyLPC_TBool NyLPC_cSnicGeneral_rxHandler(struct NyLPC_TiSnicDevice_Interface* i_
 	if(!NyLPC_cSnicNetIf_readPayload(buf,3)){
 		goto DROP;
 	}
+
 	//SEQ->INST変換
 	inst=NyLPC_cSnicNetIf_lockObjectById(buf[1]);
 	if(inst==NULL){

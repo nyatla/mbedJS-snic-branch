@@ -5,6 +5,8 @@
  *      Author: nyatla
  */
 #include "NyLPC_stdlib.h"
+#include "NyLPC_net.h"
+#include "NyLPC_cSnicNetIf.h"
 
 #ifndef NYLPC_CSNICNETIF_PROTECTED_H_
 #define NYLPC_CSNICNETIF_PROTECTED_H_
@@ -33,6 +35,23 @@ NyLPC_TUInt16 NyLPC_cSnicNetIf_getPayloadLength(const void* i_buf,NyLPC_TUInt16 
 NyLPC_TBool NyLPC_cSnicNetIf_readPayload(void* i_buf,NyLPC_TUInt8 i_len);
 
 void NyLPC_cSnicNetIf_seekPayload(NyLPC_TUInt16 i_seek);
+
+/**
+ * memory
+ */
+void* NyLPC_cSnicNetIf_allocBuf(NyLPC_TUInt16 i_req_size,NyLPC_TUInt16*o_bufsize);
+void NyLPC_cSnicNetIf_releaseBuf(void* i_buf);
+
+
+const struct NyLPC_TIPv4Addr* NyLPC_cSnicNetIf_getLocalAddr();
+
+NyLPC_TcSnicTcpListener_t* NyLPC_cSnicNetIf_getTcpListenerBySocket(NyLPC_TUInt8 i_sock);
+NyLPC_TcSnicTcpSocket_t* NyLPC_cSnicNetIf_getTcpSocketBySocket(NyLPC_TUInt8 i_sock);
+NyLPC_TcSnicUdpSocket_t* NyLPC_cSnicNetIf_getUdpSocketBySocket(NyLPC_TUInt8 i_sock);
+void NyLPC_cSnicNetIf_removeTcpListener(const NyLPC_TcSnicTcpListener_t* i_inst);
+void NyLPC_cSnicNetIf_removeTcpSocket(const NyLPC_TcSnicTcpSocket_t* i_inst);
+void NyLPC_cSnicNetIf_removeUdpSocket(const NyLPC_TcSnicUdpSocket_t* i_socket);
+
 
 #ifdef __cplusplus
 }

@@ -8,6 +8,7 @@
 #include "NyLPC_cSnicSerialDevice.h"
 #include "mbed.h"
 #include "NyLPC_os.h"
+#include "NyLPC_stdlib.h"
 
 static void uartHandler();
 
@@ -23,7 +24,7 @@ struct NyLPC_cSnicSerialDevice{
 	volatile NyLPC_TUInt16 _rp;
 	volatile NyLPC_TUInt16 _wp;
 	RawSerial* _serial;
-	NyLPC_TcSemaphore_t _rx_semapho;  /** EMACの制御用セマフォです。*/
+	NyLPC_TcSemaphore_t _rx_semapho;
 };
 
 static struct NyLPC_cSnicSerialDevice _inst;

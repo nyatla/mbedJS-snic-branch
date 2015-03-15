@@ -36,7 +36,9 @@
 #include "../netif/NyLPC_iTcpSocket.h"
 #include "../netif/NyLPC_iUdpSocket.h"
 #include "../netif/NyLPC_NetIf_ip_types.h"
-#include "../netif/NyLPC_cNetIf.h"
+#include "../netif/NyLPC_cNet.h"
+#include "../netif/NyLPC_iNetInterface.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */

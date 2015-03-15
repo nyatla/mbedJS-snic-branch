@@ -6,7 +6,7 @@ NyLPC_TBool NyLPC_cHttpd_initialize(NyLPC_TcHttpd_t* i_inst,NyLPC_TUInt16 i_port
     int i;
     i_inst->_num_of_active_connection=0;
     NyLPC_cMutex_initialize(&i_inst->_mutex);
-    i_inst->_listener=NyLPC_cNetIf_createTcpListenerEx(i_port_number);
+    i_inst->_listener=NyLPC_cNet_createTcpListenerEx(i_port_number);
     if(i_inst->_listener==NULL){
     	return NyLPC_TBool_FALSE;
     }

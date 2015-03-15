@@ -428,7 +428,7 @@ static void setup_proc(NyLPC_TcHttpdConnection_t* i_connection,struct TModMiMicS
                 NyLPC_OnErrorGoto(Error);
             }
             //write current status
-            netif_info=NyLPC_cNetIf_getInterfaceInfo();
+            netif_info=NyLPC_cNet_getInterfaceInfo();
             currebt_cfg=(const NyLPC_TcNetConfig_t*)(netif_info->current_config);
             if(!NyLPC_cHttpdConnection_sendResponseBodyF(i_connection,
                 "\"cur\":{"

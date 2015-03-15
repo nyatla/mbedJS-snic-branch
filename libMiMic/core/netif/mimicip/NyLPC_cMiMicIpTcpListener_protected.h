@@ -40,6 +40,7 @@ extern "C" {
  * 常にTRUE
  */
 NyLPC_TBool NyLPC_cMiMicIpTcpListener_synPacket(NyLPC_TcMiMicIpTcpListener_t* i_inst,const NyLPC_TcIPv4Payload_t* i_payload);
+#define NyLPC_cMiMicIpTcpListener_getLocalPort(i) ((i)->_port)
 
 #ifdef __cplusplus
 }

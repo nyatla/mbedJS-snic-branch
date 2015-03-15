@@ -97,6 +97,11 @@ void NyLPC_cFifoBuffer_initialize(NyLPC_TcFifoBuffer_t* i_inst,void* i_buf,NyLPC
  *
  */
 void NyLPC_cFifoBuffer_push(NyLPC_TcFifoBuffer_t* i_inst,const void* i_data,NyLPC_TUInt16 i_data_len);
+/**
+ * 先にメモリ領域を確保して、そのアドレスを返します。
+ */
+void* NyLPC_cFifoBuffer_prePush(NyLPC_TcFifoBuffer_t* i_inst,NyLPC_TUInt16 i_data_len);
+
 
 /**
  * この関数は、バッファの先頭からデータを削除します。

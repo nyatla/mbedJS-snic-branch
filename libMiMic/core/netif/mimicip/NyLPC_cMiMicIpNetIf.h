@@ -63,7 +63,7 @@
  **********************************************************************/
 
 #ifdef __cplusplus
-extern "C"　{
+extern "C" {
 #endif /* __cplusplus */
 
 /**********************************************************************
@@ -83,7 +83,7 @@ typedef struct NyLPC_TcMiMicIpNetIf NyLPC_TcMiMicIpNetIf_t;
  *  mbedのExportしたのをLPCXpressoでコンパイルするときは+192しないと落ちる。
  */
 #ifndef NyLPC_cMiMicIpNetIf_config_STACK_SIZE
-#	define NyLPC_cMiMicIpNetIf_config_STACK_SIZE (256+192+192)
+#	define NyLPC_cMiMicIpNetIf_config_STACK_SIZE (256+256+192)
 #endif
 
 /**
@@ -110,18 +110,12 @@ typedef struct NyLPC_TcMiMicIpNetIf NyLPC_TcMiMicIpNetIf_t;
 #endif
 
 
-/**
- * @param i_mac_addr
- * システムで唯一のUIPサービスを初期化します。1度だけ実行できます。
- */
-NyLPC_TBool NyLPC_cMiMicIpNetIf_initialize(NyLPC_TcMiMicIpNetIf_t* i_inst);
 
 
 
 
 //const NyLPC_TcIPv4Config_t* NyLPC_cUipService_refCurrentConfig(void);
 const struct NyLPC_TiNetInterface_Interface* NyLPC_cMiMicIpNetIf_getNetInterface(void);
-
 
 
 #ifdef __cplusplus

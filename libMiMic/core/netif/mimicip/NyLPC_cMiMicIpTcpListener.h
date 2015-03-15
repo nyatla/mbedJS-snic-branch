@@ -29,7 +29,7 @@
 
 #include "NyLPC_stdlib.h"
 #include "NyLPC_os.h"
-#include "NyLPC_cMiMicIpBaseSocket.h"
+#include "../NyLPC_iTcpListener.h"
 #include "NyLPC_cMiMicIpTcpSocket.h"
 #ifdef __cplusplus
 extern "C" {
@@ -63,7 +63,8 @@ struct NyLPC_TTcpListenerListenQ
  */
 struct NyLPC_TcMiMicIpTcpListener
 {
-    NyLPC_TcMiMicIpBaseSocket_t _super;
+	struct NyLPC_TiTcpListener _super;
+	NyLPC_TcIPv4_t* _parent_ipv4;
     NyLPC_TUInt16 _port;                /**<ネットワークオーダーのポート番号*/
 //  /**
 //   * タスク間の調停用Mutex

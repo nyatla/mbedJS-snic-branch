@@ -144,7 +144,7 @@ typedef void (*NyLPC_TiUdpSocket_setOnPeriodicHandler)(NyLPC_TiUdpSocket_t* i_in
  * ソケットのローカルIPのアドレスを返す。
  * 値はuipが動作中のみ有効。
  */
-typedef struct NyLPC_TIPv4Addr* (*NyLPC_TiUdpSocket_getSockIP)(const NyLPC_TiUdpSocket_t* i_inst);
+typedef const struct NyLPC_TIPv4Addr* (*NyLPC_TiUdpSocket_getSockIP)(const NyLPC_TiUdpSocket_t* i_inst);
 
 typedef void (*NyLPC_TiUdpSocket_finalize)(NyLPC_TiUdpSocket_t* i_inst);
 

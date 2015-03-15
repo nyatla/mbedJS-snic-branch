@@ -540,7 +540,7 @@ void NyLPC_cSsdpSocket_initialize(
 		const struct NyLPC_TUPnPDevDescDevice* i_ref_dev_record,
 		NyLPC_TUInt16 i_server_port,const NyLPC_TChar* i_ref_location_path)
 {
-	i_inst->_socket=NyLPC_cNetIf_createUdpSocketEx(1900,NyLPC_TSocketType_UDP_NOBUF);
+	i_inst->_socket=NyLPC_cNet_createUdpSocketEx(1900,NyLPC_TSocketType_UDP_NOBUF);
     i_inst->_socket->_tag=i_inst;
 
 	NyLPC_iUdpSocket_setOnRxHandler(i_inst->_socket,onPacket);

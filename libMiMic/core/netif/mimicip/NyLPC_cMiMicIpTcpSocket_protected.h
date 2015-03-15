@@ -26,7 +26,6 @@
 
 #ifndef NYLPC_CMIMICIPTCPSOCKET_PROTECTED_H_
 #define NYLPC_CMIMICIPTCPSOCKET_PROTECTED_H_
-#include "NyLPC_cIPv4.h"
 #include "NyLPC_cMiMicIpTcpSocket.h"
 #include "../NyLPC_cIPv4Config.h"
 #include "NyLPC_cIPv4Payload_protected.h"
@@ -106,6 +105,11 @@ void NyLPC_cMiMicIpTcpSocket_stopService(NyLPC_TcMiMicIpTcpSocket_t* i_inst);
 void* NyLPC_cMiMicIpTcpSocket_allocTcpReverseRstAck(
     const NyLPC_TcIPv4Payload_t* i_src);
 
+/**
+ * ローカルポートを返します。
+ */
+#define NyLPC_cMiMicIpTcpSocket_getLocalPort(i) ((i)->uip_connr.lport)
+#define NyLPC_cMiMicIpTcpSocket_isClosed(i) ((i)->tcpstateflags==UIP_CLOSED)
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */

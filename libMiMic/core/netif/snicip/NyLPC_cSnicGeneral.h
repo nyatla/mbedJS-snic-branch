@@ -8,7 +8,7 @@
 #ifndef NYLPC_CSNICGENERAL_H_
 #define NYLPC_CSNICGENERAL_H_
 
-#include "nyLPC_stdlib.h"
+#include "NyLPC_stdlib.h"
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -34,6 +34,10 @@ struct NyLPC_TcSnicGeneral
 NyLPC_TBool NyLPC_cSnicGeneral_initialize(NyLPC_TcSnicGeneral_t* i_inst);
 void NyLPC_cSnicGeneral_finalize(NyLPC_TcSnicGeneral_t* i_inst);
 NyLPC_TBool NyLPC_cSnicGeneral_getFirmwareVersionInfo(NyLPC_TcSnicGeneral_t* i_inst,NyLPC_TChar* i_buf,NyLPC_TUInt8 i_buf_len);
+
+//Protected
+NyLPC_TBool NyLPC_cSnicGeneral_rxHandler(struct NyLPC_TiSnicDevice_Interface* i_dev);
+
 
 #ifdef __cplusplus
 }

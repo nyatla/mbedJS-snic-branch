@@ -101,8 +101,8 @@ void NyLPC_TTcpListenerListenQ_remove(struct NyLPC_TTcpListenerListenQ* i_struct
 
 //#define lockResource(i_inst) NyLPC_cMutex_lock(((i_inst)->_mutex))
 //#define unlockResource(i_inst) NyLPC_cMutex_unlock(((i_inst)->_mutex))
-#define lockResource(i_inst) NyLPC_cMutex_lock(NyLPC_cIPv4_getListenerMutex(((i_inst)->_super._parent_ipv4)))
-#define unlockResource(i_inst) NyLPC_cMutex_unlock(NyLPC_cIPv4_getListenerMutex(((i_inst)->_super._parent_ipv4)))
+#define lockResource(i_inst) NyLPC_cMutex_lock(NyLPC_cIPv4_getListenerMutex(((i_inst)->_parent_ipv4)))
+#define unlockResource(i_inst) NyLPC_cMutex_unlock(NyLPC_cIPv4_getListenerMutex(((i_inst)->_parent_ipv4)))
 
 
 static NyLPC_TBool listen(NyLPC_TiTcpListener_t* i_inst,NyLPC_TiTcpSocket_t* i_sock,NyLPC_TUInt32 i_wait_msec);
@@ -120,8 +120,8 @@ const static struct NyLPC_TiTcpListener_Interface interface=
 NyLPC_TBool NyLPC_cMiMicIpTcpListener_initialize(NyLPC_TcMiMicIpTcpListener_t* i_inst,NyLPC_TUInt16 i_port)
 {
     NyLPC_TcMiMicIpNetIf_t* srv=_NyLPC_TcMiMicIpNetIf_inst;
-    i_inst->_super._super.tcp_listener._interface=&interface;
-    NyLPC_cMiMicIpBaseSocket_initialize(&(i_inst->_super),NyLPC_TcMiMicIpBaseSocket_TYPEID_TCP_LISTENER);
+    i_inst->_super._interface=&interface;
+    i_inst->_parent_ipv4=&srv->_tcpv4;
     NyLPC_TTcpListenerListenQ_init(&i_inst->_listen_q);
     //uipサービスは初期化済であること。
     NyLPC_Assert(NyLPC_cMiMicIpNetIf_isInitService());
@@ -130,21 +130,14 @@ NyLPC_TBool NyLPC_cMiMicIpTcpListener_initialize(NyLPC_TcMiMicIpTcpListener_t* i
 //  i_inst->_mutex=NyLPC_cIPv4_getListenerMutex(&srv->_tcpv4);//    NyLPC_cMutex_initialize(&(i_inst->_mutex));
     i_inst->_port=NyLPC_htons(i_port);
     //管理リストへ登録。
-    return NyLPC_cIPv4_addSocket(&(srv->_tcpv4),&(i_inst->_super));
+    return NyLPC_TBool_TRUE;
 }
 
 
 
 static void finaize(NyLPC_TiTcpListener_t* i_inst)
 {
-    NyLPC_TcMiMicIpNetIf_t* srv=_NyLPC_TcMiMicIpNetIf_inst;
     NyLPC_Assert(NyLPC_cMiMicIpNetIf_isInitService());
-    //uipサービスは初期化済であること。
-    if(!NyLPC_cIPv4_removeSocket(&(srv->_tcpv4),&(((NyLPC_TcMiMicIpTcpListener_t*)i_inst)->_super))){
-        //削除失敗、それは死を意味する。
-        NyLPC_Abort();
-    }
-    NyLPC_cMiMicIpBaseSocket_finalize(&(((NyLPC_TcMiMicIpTcpListener_t*)i_inst)->_super));
     NyLPC_cMiMicIpNetIf_releaseTcpListenerMemory((NyLPC_TcMiMicIpTcpListener_t*)i_inst);
     return;
 }

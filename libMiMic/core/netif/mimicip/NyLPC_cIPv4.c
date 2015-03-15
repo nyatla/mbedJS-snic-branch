@@ -61,225 +61,10 @@
 #include "NyLPC_cMiMicIpUdpSocket_protected.h"
 #include "NyLPC_cIPv4IComp_protected.h"
 #include "NyLPC_cMiMicIpNetIf_protected.h"
-#include "NyLPC_cMiMicIpBaseSocket.h"
 
 
 
-/****************************************************
- * Socketテーブルに関する宣言
- ***************************************************/
 
-#define cSocketTbl_initialize(i_inst,buf) NyLPC_cPtrTbl_initialize(i_inst,buf,NyLPC_cIPv4_MAX_SOCKET)
-#define cSocketTbl_finalize(i_inst)
-
-/**
- * 条件に一致する、アクティブなTCPソケットオブジェクトを取得します。
- * この関数は、ローカルIPが一致していると仮定して検索をします。
- * @param i_rip
- * リモートIPアドレスを指定します。
- */
-static NyLPC_TcMiMicIpTcpSocket_t* cSocketTbl_getMatchTcpSocket(
-    NyLPC_TcPtrTbl_t* i_inst,
-    NyLPC_TUInt16 i_lport,
-    struct NyLPC_TIPv4Addr i_rip,
-    NyLPC_TUInt16 i_rport)
-{
-    NyLPC_TcMiMicIpBaseSocket_t** p=(NyLPC_TcMiMicIpBaseSocket_t**)(i_inst->buf);
-    NyLPC_TcMiMicIpTcpSocket_t* tp;
-    int i;
-    //一致するポートを検索
-    for(i=i_inst->size-1;i>=0;i--){
-        if(p[i]==NULL || p[i]->_typeid!=NyLPC_TcMiMicIpBaseSocket_TYPEID_TCP_SOCK){
-            continue;
-        }
-        tp=(NyLPC_TcMiMicIpTcpSocket_t*)p[i];
-        if(tp->tcpstateflags==UIP_CLOSED){
-            continue;
-        }
-        //パラメータの一致チェック
-        if(i_lport!=tp->uip_connr.lport || i_rport!= tp->uip_connr.rport || i_rip.v!=tp->uip_connr.ripaddr.v)
-        {
-            continue;
-        }
-        return tp;
-    }
-    return NULL;
-}
-static NyLPC_TcMiMicIpUdpSocket_t* cSocketTbl_getMatchUdpSocket(
-    NyLPC_TcPtrTbl_t* i_inst,
-    NyLPC_TUInt16 i_lport)
-{
-    NyLPC_TcMiMicIpBaseSocket_t** p=(NyLPC_TcMiMicIpBaseSocket_t**)(i_inst->buf);
-    NyLPC_TcMiMicIpUdpSocket_t* tp;
-    int i;
-    //一致するポートを検索
-    for(i=i_inst->size-1;i>=0;i--){
-        if(p[i]==NULL || p[i]->_typeid!=NyLPC_TcMiMicIpBaseSocket_TYPEID_UDP_SOCK){
-            continue;
-        }
-        tp=(NyLPC_TcMiMicIpUdpSocket_t*)p[i];
-        //パラメータの一致チェック
-        if(i_lport==tp->uip_udp_conn.lport){
-        //unicast
-            return tp;
-        }
-    }
-    return NULL;
-}
-static NyLPC_TcMiMicIpUdpSocket_t* cSocketTbl_getMatchMulticastUdpSocket(
-    NyLPC_TcPtrTbl_t* i_inst,
-    const struct NyLPC_TIPv4Addr* i_mcast_ip,
-    NyLPC_TUInt16 i_lport)
-{
-    NyLPC_TcMiMicIpBaseSocket_t** p=(NyLPC_TcMiMicIpBaseSocket_t**)(i_inst->buf);
-    NyLPC_TcMiMicIpUdpSocket_t* tp;
-    int i;
-    //一致するポートを検索
-    for(i=i_inst->size-1;i>=0;i--){
-        if(p[i]==NULL || p[i]->_typeid!=NyLPC_TcMiMicIpBaseSocket_TYPEID_UDP_SOCK){
-            continue;
-        }
-        tp=(NyLPC_TcMiMicIpUdpSocket_t*)p[i];
-        //パラメータの一致チェック
-        if(i_lport!=tp->uip_udp_conn.lport || (!NyLPC_TIPv4Addr_isEqual(i_mcast_ip,&(tp->uip_udp_conn.mcastaddr))))
-        {
-            continue;
-        }
-        return tp;
-    }
-    return NULL;
-}
-
-/**
- * i_port番号に一致するリスナを返します。
- */
-static NyLPC_TcMiMicIpTcpListener_t* cSocketTbl_getListenerByPeerPort(NyLPC_TcPtrTbl_t* i_inst,NyLPC_TUInt16 i_port)
-{
-    NyLPC_TcMiMicIpBaseSocket_t** p=(NyLPC_TcMiMicIpBaseSocket_t**)(i_inst->buf);
-    NyLPC_TcMiMicIpTcpListener_t* lp;
-    int i;
-    //一致するポートを検索して、acceptをコールする。
-    for(i=i_inst->size-1;i>=0;i--){
-        if(p[i]==NULL || p[i]->_typeid!=NyLPC_TcMiMicIpBaseSocket_TYPEID_TCP_LISTENER){
-            continue;
-        }
-        lp=(NyLPC_TcMiMicIpTcpListener_t*)p[i];
-        if(lp->_port!=i_port){
-            continue;
-        }
-        return lp;
-    }
-    return NULL;
-}
-/**
- * 指定番号のTCPポートが未使用かを返す。
- * @return
- * i_lport番のポートが未使用であればTRUE
- */
-static NyLPC_TBool cSocketTbl_isClosedTcpPort(
-    NyLPC_TcPtrTbl_t* i_inst,
-    NyLPC_TUInt16 i_lport)
-{
-    NyLPC_TcMiMicIpBaseSocket_t** p=(NyLPC_TcMiMicIpBaseSocket_t**)(i_inst->buf);
-    NyLPC_TcMiMicIpTcpSocket_t* tp;
-    int i;
-    //一致するポートを検索
-    for(i=i_inst->size-1;i>=0;i--){
-        if(p[i]==NULL){
-            continue;
-        }
-        if(p[i]->_typeid!=NyLPC_TcMiMicIpBaseSocket_TYPEID_TCP_SOCK){
-            tp=((NyLPC_TcMiMicIpTcpSocket_t*)p[i]);
-            //TCPソケット && !クローズ  && ポート一致なら使用中
-            if((tp->tcpstateflags!=UIP_CLOSED) && tp->uip_connr.lport==i_lport){
-                return NyLPC_TBool_FALSE;
-            }
-        }
-        if(p[i]->_typeid!=NyLPC_TcMiMicIpBaseSocket_TYPEID_TCP_LISTENER){
-            //Listenerソケット  && ポート一致なら使用中
-            if(((NyLPC_TcMiMicIpTcpListener_t*)p[i])->_port==i_lport){
-                return NyLPC_TBool_FALSE;
-            }
-        }
-    }
-    //未使用
-    return NyLPC_TBool_TRUE;
-}
-/**
- * テーブルにある有効なソケットのperiodicをすべて呼び出します。
- */
-static void cSocketTbl_callPeriodic(
-    NyLPC_TcPtrTbl_t* i_inst)
-{
-    NyLPC_TcMiMicIpBaseSocket_t** p=(NyLPC_TcMiMicIpBaseSocket_t**)(i_inst->buf);
-    int i;
-    for(i=i_inst->size-1;i>=0;i--){
-        if(p[i]==NULL){
-            continue;
-        }
-        switch(p[i]->_typeid){
-        case NyLPC_TcMiMicIpBaseSocket_TYPEID_TCP_SOCK:
-            //downcast!
-            NyLPC_cMiMicIpTcpSocket_periodic((NyLPC_TcMiMicIpTcpSocket_t*)(p[i]));
-            break;
-        case NyLPC_TcMiMicIpBaseSocket_TYPEID_UDP_SOCK:
-            NyLPC_cMiMicIpUdpSocket_periodic((NyLPC_TcMiMicIpUdpSocket_t*)(p[i]));
-            break;
-        default:
-            continue;
-        }
-    }
-}
-
-/**
- * テーブルにある有効なソケットのstartを全て呼び出します。
- */
-static void cSocketTbl_callSocketStart(
-    NyLPC_TcPtrTbl_t* i_inst,
-    const NyLPC_TcIPv4Config_t* i_cfg)
-{
-    NyLPC_TcMiMicIpBaseSocket_t** p=(NyLPC_TcMiMicIpBaseSocket_t**)(i_inst->buf);
-    int i;
-    for(i=i_inst->size-1;i>=0;i--){
-        if(p[i]==NULL){
-            continue;
-        }
-        switch(p[i]->_typeid){
-        case NyLPC_TcMiMicIpBaseSocket_TYPEID_UDP_SOCK:
-            NyLPC_cMiMicIpUdpSocket_startService((NyLPC_TcMiMicIpUdpSocket_t*)(p[i]),i_cfg);
-            break;
-        case NyLPC_TcMiMicIpBaseSocket_TYPEID_TCP_SOCK:
-            NyLPC_cMiMicIpTcpSocket_startService((NyLPC_TcMiMicIpTcpSocket_t*)(p[i]),i_cfg);
-            break;
-        default:
-            continue;
-        }
-    }
-}
-/**
- * テーブルにある有効なソケットのstartを全て呼び出します。
- */
-static void cSocketTbl_callSocketStop(
-    NyLPC_TcPtrTbl_t* i_inst)
-{
-    NyLPC_TcMiMicIpBaseSocket_t** p=(NyLPC_TcMiMicIpBaseSocket_t**)(i_inst->buf);
-    int i;
-    for(i=i_inst->size-1;i>=0;i--){
-        if(p[i]==NULL){
-            continue;
-        }
-        switch(p[i]->_typeid){
-        case NyLPC_TcMiMicIpBaseSocket_TYPEID_UDP_SOCK:
-            NyLPC_cMiMicIpUdpSocket_stopService((NyLPC_TcMiMicIpUdpSocket_t*)(p[i]));
-            break;
-        case NyLPC_TcMiMicIpBaseSocket_TYPEID_TCP_SOCK:
-            NyLPC_cMiMicIpTcpSocket_stopService((NyLPC_TcMiMicIpTcpSocket_t*)(p[i]));
-            break;
-        default:
-            continue;
-        }
-    }
-}
 
 /****************************************************
  * NyLPC_cIPv4
@@ -305,8 +90,6 @@ void NyLPC_cIPv4_initialize(
 {
     //IP制御パケットの為に40バイト以上のシステムTXメモリが必要。
     NyLPC_ArgAssert(NyLPC_cMiMicIpNetIf_SYS_TX_BUF_SIZE>40);
-    //内部テーブルの初期化
-    cSocketTbl_initialize(&(i_inst->_socket_tbl),(void**)(i_inst->_socket_array_buf));
     //instanceの初期化
     NyLPC_cMutex_initialize(&(i_inst->_sock_mutex));
     NyLPC_cMutex_initialize(&(i_inst->_listener_mutex));
@@ -321,7 +104,6 @@ void NyLPC_cIPv4_initialize(
 void NyLPC_cIPv4_finalize(
     NyLPC_TcIPv4_t* i_inst)
 {
-    cSocketTbl_finalize(&(i_inst->_socket_tbl));
     NyLPC_cMutex_finalize(&(i_inst->_sock_mutex));
     NyLPC_cMutex_finalize(&(i_inst->_listener_mutex));
     return;
@@ -338,7 +120,7 @@ void NyLPC_cIPv4_start(
     //リストの初期化、ここでするべき？しないべき？
     i_inst->_ref_config=i_ref_configlation;
     //configulationのアップデートを登録されてるソケットに通知
-    cSocketTbl_callSocketStart(&(i_inst->_socket_tbl),i_ref_configlation);
+    NyLPC_cMiMicIpNetIf_callSocketStart(i_ref_configlation);
     return;
 }
 
@@ -348,39 +130,11 @@ void NyLPC_cIPv4_start(
 void NyLPC_cIPv4_stop(
     NyLPC_TcIPv4_t* i_inst)
 {
-    cSocketTbl_callSocketStop(&(i_inst->_socket_tbl));
+	NyLPC_cMiMicIpNetIf_callSocketStop();
     i_inst->_ref_config=NULL;
     return;
 }
 
-/**
- * See header file.
- */
-NyLPC_TBool NyLPC_cIPv4_addSocket(
-    NyLPC_TcIPv4_t* i_inst,
-    NyLPC_TcMiMicIpBaseSocket_t* i_sock)
-{
-    //当面、stop中しか成功しない。
-    NyLPC_Assert(!NyLPC_cMiMicIpNetIf_isRun());
-    return NyLPC_cPtrTbl_add(&(i_inst->_socket_tbl),i_sock)>=0;
-}
-
-/**
- * See header file.
- */
-NyLPC_TBool NyLPC_cIPv4_removeSocket(
-    NyLPC_TcIPv4_t* i_inst,
-    NyLPC_TcMiMicIpBaseSocket_t* i_sock)
-{
-    NyLPC_TInt16 i;
-    NyLPC_Assert(!NyLPC_cMiMicIpNetIf_isRun());
-    i=NyLPC_cPtrTbl_getIndex(&(i_inst->_socket_tbl),i_sock);
-    if(i>=0){
-        NyLPC_cPtrTbl_remove(&(i_inst->_socket_tbl),i);
-        return NyLPC_TBool_TRUE;
-    }
-    return NyLPC_TBool_FALSE;
-}
 
 
 #define IS_START(i_inst) ((i_inst)->_ref_config!=NULL)
@@ -390,7 +144,7 @@ NyLPC_TBool NyLPC_cIPv4_removeSocket(
  */
 void NyLPC_cIPv4_periodec(NyLPC_TcIPv4_t* i_inst)
 {
-    cSocketTbl_callPeriodic(&(i_inst->_socket_tbl));
+	NyLPC_cMiMicIpNetIf_callPeriodic();
 }
 
 
@@ -440,7 +194,7 @@ NyLPC_TUInt16 NyLPC_cIPv4_getNewPortNumber(NyLPC_TcIPv4_t* i_inst)
     for(i=0;i<0x0fff;i--){
         i_inst->tcp_port_counter=(i_inst->tcp_port_counter+1)%0x0fff;
         n=i_inst->tcp_port_counter+49152;
-        if(cSocketTbl_isClosedTcpPort(&i_inst->_socket_tbl,n))
+        if(NyLPC_cMiMicIpNetIf_isClosedTcpPort(n))
         {
             return n;
         }
@@ -476,20 +230,15 @@ static void* tcp_rx(
         goto DROP;
     }
     //アクティブなTCPソケットを探す。
-    sock=cSocketTbl_getMatchTcpSocket(&(i_inst->_socket_tbl),i_ipp->payload.tcp->destport,i_ipp->header->srcipaddr,i_ipp->payload.tcp->srcport);
+    sock=NyLPC_cMiMicIpNetIf_getMatchTcpSocket(i_ipp->payload.tcp->destport,i_ipp->header->srcipaddr,i_ipp->payload.tcp->srcport);
     if(sock!=NULL)
     {
         //既存の接続を処理
         return NyLPC_cMiMicIpTcpSocket_parseRx(sock,i_ipp);
     }
 
-    //未知の接続
-    if(!NyLPC_cPtrTbl_hasEmpty(&(i_inst->_socket_tbl))){
-        //ソケットテーブルが不十分。RST送信
-        return NyLPC_cMiMicIpTcpSocket_allocTcpReverseRstAck(i_ipp);
-    }
     //このポートに対応したListenerを得る。
-    listener=cSocketTbl_getListenerByPeerPort(&(i_inst->_socket_tbl),i_ipp->payload.tcp->destport);
+    listener=NyLPC_cMiMicIpNetIf_getListenerByPeerPort(i_ipp->payload.tcp->destport);
     if(listener==NULL){
         //Listen対象ではない。RST送信
         return NyLPC_cMiMicIpTcpSocket_allocTcpReverseRstAck(i_ipp);
@@ -510,15 +259,15 @@ static NyLPC_TBool udp_rx(
     NyLPC_TcMiMicIpUdpSocket_t* sock=NULL;
     if(!NyLPC_TIPv4Addr_isEqual(&(i_ipp->header->destipaddr),&(i_inst->_ref_config->ip_addr)))
     {
-        sock=cSocketTbl_getMatchUdpSocket(&(i_inst->_socket_tbl),i_ipp->payload.udp->destport);
+        sock=NyLPC_cMiMicIpNetIf_getMatchUdpSocket(i_ipp->payload.udp->destport);
     }else{
         if(NyLPC_TIPv4Addr_isEqualWithMask(&(i_ipp->header->destipaddr),&NyLPC_TIPv4Addr_MULTICAST,&NyLPC_TIPv4Addr_MULTICAST_MASK)){
         //MultiCast?
             //マルチキャストに参加している&&portの一致するソケットを検索
-            sock=cSocketTbl_getMatchMulticastUdpSocket(&(i_inst->_socket_tbl),&(i_ipp->header->destipaddr),i_ipp->payload.udp->destport);
+            sock=NyLPC_cMiMicIpNetIf_getMatchMulticastUdpSocket(&(i_ipp->header->destipaddr),i_ipp->payload.udp->destport);
         }else if(!NyLPC_TIPv4Addr_isEqual(&(i_ipp->header->destipaddr),&NyLPC_TIPv4Addr_BROADCAST)){
         //Broadcast?
-            sock=cSocketTbl_getMatchUdpSocket(&(i_inst->_socket_tbl),i_ipp->payload.udp->destport);
+            sock=NyLPC_cMiMicIpNetIf_getMatchUdpSocket(i_ipp->payload.udp->destport);
         }
     }
     if(sock==NULL)

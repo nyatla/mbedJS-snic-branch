@@ -1,5 +1,5 @@
 #include "NyLPC_cApipa.h"
-#include "../NyLPC_cNetIf.h"
+#include "../NyLPC_cNet.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -14,7 +14,7 @@ static NyLPC_TBool waitForArpResponse(const struct NyLPC_TIPv4Addr* i_ip,NyLPC_T
     NyLPC_cStopwatch_startExpire(&sw,i_wait_in_ms);
     while(!NyLPC_cStopwatch_isExpired(&sw)){
         NyLPC_cThread_yield();
-        if(NyLPC_cNetIf_hasArpInfo(i_ip)){
+        if(NyLPC_cNet_hasArpInfo(i_ip)){
             return NyLPC_TBool_TRUE;
         }
     }
@@ -64,26 +64,26 @@ NyLPC_TBool NyLPC_cApipa_requestAddr(NyLPC_TcApipa_t* i_inst,NyLPC_TcIPv4Config_
         updateSeed(i_inst);
         makeIP(i_inst,&caip);
         //startInterface
-        NyLPC_cNetIf_start(&cfg);
-        NyLPC_cNetIf_sendArpRequest(&caip);
+        NyLPC_cNet_start(&cfg);
+        NyLPC_cNet_sendArpRequest(&caip);
         //テーブル更新待ち
         if(waitForArpResponse(&caip,512+(i_inst->_seed % 256))){
-        	NyLPC_cNetIf_stop();
+        	NyLPC_cNet_stop();
             continue;
         }
-        NyLPC_cNetIf_stop();
+        NyLPC_cNet_stop();
         //IPのコンフリクトテスト
         NyLPC_cIPv4Config_setIp(&cfg,&caip,&NyLPC_TIPv4Addr_APIPA_MASK);
-        NyLPC_cNetIf_start(&cfg);
+        NyLPC_cNet_start(&cfg);
         //!ARP送信
-        NyLPC_cNetIf_sendArpRequest(&caip);
+        NyLPC_cNet_sendArpRequest(&caip);
         if(waitForArpResponse(&caip,512+(256-(i_inst->_seed % 256)))){
             //応答があったらエラー
-        	 NyLPC_cNetIf_stop();
+        	 NyLPC_cNet_stop();
             continue;
         }
         //OK
-        NyLPC_cNetIf_stop();
+        NyLPC_cNet_stop();
         NyLPC_cIPv4Config_setIp(i_cfg,&cfg.ip_addr,&cfg.netmask);
         return NyLPC_TBool_TRUE;
     }

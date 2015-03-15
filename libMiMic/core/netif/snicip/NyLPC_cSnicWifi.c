@@ -44,7 +44,7 @@
 static void sendCmd(NyLPC_TcSnicWifi_t* i_inst,NyLPC_TUInt8* i_data,NyLPC_TUInt16 i_data_len)
 {
 	i_inst->_signal=NyLPC_TUInt8_FALSE;
-	NyLPC_cSnicNetIf_sendShortPayload(i_data,SNIC_UART_CMD_ID_WIFI,4);
+	NyLPC_cSnicNetIf_sendShortPayload(i_data,SNIC_UART_CMD_ID_WIFI,i_data_len);
 	//シグナル待ち
 	do{
 		NyLPC_cThread_yield();

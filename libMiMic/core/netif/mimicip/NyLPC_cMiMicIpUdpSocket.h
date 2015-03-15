@@ -9,7 +9,6 @@
 #define NYLPC_CMIMICIPUDPSOCKET_H_
 
 #include "NyLPC_os.h"
-#include "NyLPC_cMiMicIpBaseSocket.h"
 #include "../NyLPC_iUdpSocket.h"
 
 
@@ -25,19 +24,6 @@ extern "C" {
 typedef struct NyLPC_TcMiMicIpUdpSocket NyLPC_TcMiMicIpUdpSocket_t;
 
 
-/**
- * 受信時に非同期にコールされるハンドラ
- * UIPサービスタスクが実行する。
- * @return
- * TRUEならパケットを受信キューへ追加する。FALSEならパケットを受信キューへ追加しない。
- */
-typedef NyLPC_TBool (*NyLPC_TcMiMicIpUdpSocket_onRxHandler)(NyLPC_TiUdpSocket_t* i_inst,const void* i_buf,const struct NyLPC_TIPv4RxInfo* i_info);
-
-/**
- * 一定周期で非同期にコールされるハンドラ。
- * UIPサービスタスクが実行する。
- */
-typedef void (*NyLPC_TcMiMicIpUdpSocket_onPeriodicHandler)(NyLPC_TiUdpSocket_t* i_inst);
 
 /**
  * Representation of a uIP UDP connection.
@@ -56,16 +42,16 @@ struct uip_udp_conn{
 
 struct NyLPC_TcMiMicIpUdpSocket
 {
-	NyLPC_TcMiMicIpBaseSocket_t _super;
+	struct NyLPC_TiUdpSocket _super;
     //この変数は、uipタスクの実行する関数のみが変更する。
     struct uip_udp_conn uip_udp_conn;
     NyLPC_TcFifoBuffer_t rxbuf;
     NyLPC_TcMutex_t* _smutex;
     struct{
         /**　受信ハンドラ。サービス実装に使用する。*/
-    	NyLPC_TcMiMicIpUdpSocket_onRxHandler rx;
+    	NyLPC_TiUdpSocket_onRxHandler rx;
         /** 定期実行ハンドラ。サービス実装に使用する。最低保障周期は1s*/
-    	NyLPC_TcMiMicIpUdpSocket_onPeriodicHandler periodic;
+    	NyLPC_TiUdpSocket_onPeriodicHandler periodic;
     }as_handler;
 };
 

@@ -11,7 +11,7 @@ namespace MiMic
     
     TcpSocket::TcpSocket()
     {
-        this->_inst=NyLPC_cNetIf_createTcpSocketEx(NyLPC_TSocketType_TCP_NORMAL);
+        this->_inst=NyLPC_cNet_createTcpSocketEx(NyLPC_TSocketType_TCP_NORMAL);
     	if(this->_inst==NULL){
     		mbed_die();
     	}

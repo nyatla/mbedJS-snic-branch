@@ -24,7 +24,7 @@
  *
  *********************************************************************************/
 #include "NyLPC_cDhcpClient.h"
-#include "../NyLPC_cNetIf.h"
+#include "../NyLPC_cNet.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -200,7 +200,7 @@ static NyLPC_TBool onPacket(NyLPC_TiUdpSocket_t* i_inst,const void* i_buf,const 
  */
 NyLPC_TBool NyLPC_cDhcpClient_initialize(NyLPC_TcDhcpClient_t* i_inst)
 {
-	i_inst->_socket=NyLPC_cNetIf_createUdpSocketEx(68,NyLPC_TSocketType_UDP_NOBUF);
+	i_inst->_socket=NyLPC_cNet_createUdpSocketEx(68,NyLPC_TSocketType_UDP_NOBUF);
     if(i_inst->_socket==NULL){
         return NyLPC_TBool_FALSE;
     }
@@ -294,14 +294,14 @@ NyLPC_TBool NyLPC_cDhcpClient_requestAddr(NyLPC_TcDhcpClient_t* i_inst,NyLPC_TcI
     NyLPC_cIPv4Config_setIp(&c2,&NyLPC_TIPv4Addr_ZERO,&NyLPC_TIPv4Addr_ZERO);
     NyLPC_cIPv4Config_setDefaultRoute(&c2,&NyLPC_TIPv4Addr_ZERO);
     //netを開始
-    NyLPC_cNetIf_start(&c2);
+    NyLPC_cNet_start(&c2);
     for(i=i_repeat-1;i>=0;i--){
         ret=NyLPC_cDhcpClient_dhcpRequest(i_inst,i_cfg);
         if(ret){
             break;
         }
     }
-    NyLPC_cNetIf_stop();
+    NyLPC_cNet_stop();
     NyLPC_cIPv4Config_finalize(&c2);
     return ret;
 }

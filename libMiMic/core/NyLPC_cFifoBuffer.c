@@ -49,6 +49,14 @@ void NyLPC_cFifoBuffer_push(NyLPC_TcFifoBuffer_t* i_inst,const void* i_data,NyLP
     memcpy(wp,i_data,i_data_len);
     i_inst->len+=i_data_len;
 }
+void* NyLPC_cFifoBuffer_prePush(NyLPC_TcFifoBuffer_t* i_inst,NyLPC_TUInt16 i_data_len)
+{
+    NyLPC_TUInt8* wp;
+    NyLPC_ArgAssert(NyLPC_cFifoBuffer_getSpace(i_inst)>=i_data_len);
+    wp=((NyLPC_TUInt8*)(i_inst->buf))+i_inst->len;
+    i_inst->len+=i_data_len;
+    return wp;
+}
 
 /**
  * See Header file.

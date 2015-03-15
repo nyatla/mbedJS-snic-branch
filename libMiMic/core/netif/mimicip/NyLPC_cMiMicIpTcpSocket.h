@@ -31,8 +31,8 @@
 #include "NyLPC_os.h"
 #include "../NyLPC_NetIf_ip_types.h"
 #include "NyLPC_cIPv4Payload.h"
-#include "NyLPC_cMiMicIpBaseSocket.h"
-
+#include "../NyLPC_iTcpSocket.h"
+#include "NyLPC_cIPv4.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -127,9 +127,9 @@ struct uip_conn
 
 struct NyLPC_TcMiMicIpTcpSocket
 {
-    /** Base class*/
-	NyLPC_TcMiMicIpBaseSocket_t _super;
-    //この変数は、uipタスクの実行する関数のみが変更する。
+	struct NyLPC_TiTcpSocket _super;
+	NyLPC_TcIPv4_t* _parent_ipv4;
+	//この変数は、uipタスクの実行する関数のみが変更する。
     struct uip_conn uip_connr;
     NyLPC_TcFifoBuffer_t rxbuf;
     struct{

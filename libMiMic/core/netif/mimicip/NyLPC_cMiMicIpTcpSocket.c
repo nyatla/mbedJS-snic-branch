@@ -69,8 +69,8 @@ static NyLPC_TUInt32 iss32=3939;
 
 //#define lockResource(i_inst) NyLPC_cMutex_lock(&((i_inst)->_smutex))
 //#define unlockResource(i_inst) NyLPC_cMutex_unlock(&((i_inst)->_smutex))
-#define lockResource(i_inst) NyLPC_cMutex_lock(NyLPC_cIPv4_getSockMutex(((i_inst)->_super._parent_ipv4)))
-#define unlockResource(i_inst) NyLPC_cMutex_unlock(NyLPC_cIPv4_getSockMutex(((i_inst)->_super._parent_ipv4)))
+#define lockResource(i_inst) NyLPC_cMutex_lock(NyLPC_cIPv4_getSockMutex(((i_inst)->_parent_ipv4)))
+#define unlockResource(i_inst) NyLPC_cMutex_unlock(NyLPC_cIPv4_getSockMutex(((i_inst)->_parent_ipv4)))
 
 static void sendRst(NyLPC_TcMiMicIpTcpSocket_t* i_inst);
 
@@ -480,8 +480,9 @@ NyLPC_TBool NyLPC_cMiMicIpTcpSocket_initialize(NyLPC_TcMiMicIpTcpSocket_t* i_ins
 {
     int i;
     NyLPC_TcMiMicIpNetIf_t* srv=_NyLPC_TcMiMicIpNetIf_inst;
-    i_inst->_super._super.tcp_sock._interface=&_interface;
-    NyLPC_cMiMicIpBaseSocket_initialize(&(i_inst->_super),NyLPC_TcMiMicIpBaseSocket_TYPEID_TCP_SOCK);
+    i_inst->_super._interface=&_interface;
+    i_inst->_parent_ipv4=&srv->_tcpv4;
+
     //uipサービスは初期化済であること。
     NyLPC_Assert(NyLPC_cMiMicIpNetIf_isInitService());
 
@@ -494,7 +495,7 @@ NyLPC_TBool NyLPC_cMiMicIpTcpSocket_initialize(NyLPC_TcMiMicIpTcpSocket_t* i_ins
         i_inst->txbuf.txq[i].packet=NULL;
     }
     //管理リストへ登録。
-    return NyLPC_cIPv4_addSocket(&(srv->_tcpv4),&(i_inst->_super));
+    return NyLPC_TBool_TRUE;
 }
 
 
@@ -718,11 +719,6 @@ static void finalize(NyLPC_TiTcpSocket_t* i_inst)
     int i;
 	NyLPC_TcMiMicIpTcpSocket_t* inst=(NyLPC_TcMiMicIpTcpSocket_t*)i_inst;
     NyLPC_Assert(NyLPC_cMiMicIpNetIf_isInitService());
-    //uipサービスは初期化済であること。
-    if(!NyLPC_cIPv4_removeSocket(&(_NyLPC_TcMiMicIpNetIf_inst->_tcpv4),&(inst->_super))){
-        //削除失敗、それは死を意味する。
-        NyLPC_Abort();
-    }
     //開放漏れの保険
     if(inst->txbuf.rp!=inst->txbuf.wp){
         lockResource(inst);
@@ -733,7 +729,6 @@ static void finalize(NyLPC_TiTcpSocket_t* i_inst)
     }
     NyLPC_cFifoBuffer_finalize(&(inst->rxbuf));
 //  NyLPC_cMutex_finalize(&(i_inst->_smutex));
-    NyLPC_cMiMicIpBaseSocket_finalize(&(inst->_super));
     NyLPC_cMiMicIpNetIf_releaseTcpSocketMemory(inst);
 
     return;
@@ -753,7 +748,7 @@ static NyLPC_TBool connect(NyLPC_TiTcpSocket_t* i_inst,const struct NyLPC_TIPv4A
         NyLPC_OnErrorGoto(Error);
     }
     //ポート番号の取得(lockResourceが他のソケットと共有なので、重複ポートの割当は起こりえない。でもちょっと注意して)
-    lport=NyLPC_htons(NyLPC_cIPv4_getNewPortNumber(inst->_super._parent_ipv4));
+    lport=NyLPC_htons(NyLPC_cIPv4_getNewPortNumber(inst->_parent_ipv4));
     if(lport==0){
         NyLPC_OnErrorGoto(Error);
     }

@@ -155,7 +155,6 @@ NyLPC_TInt32 NyLPC_cHttpBasicBodyParser_parseChar(NyLPC_TcHttpBasicBodyParser_t*
             }
         }
         return i_size;
-        break;
     case NyLPC_THttpMessgeHeader_TransferEncoding_NONE:
         if(i_inst->_status!=NyLPC_TcHttpBasicBodyParser_ST_BODY){
             NyLPC_OnErrorGoto(ERROR);

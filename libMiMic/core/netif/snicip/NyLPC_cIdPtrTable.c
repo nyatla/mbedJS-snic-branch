@@ -16,7 +16,7 @@ static struct NyLPC_TcIdPtrTableItem* id2Item(NyLPC_TcIdPtrTable_t* i_inst,NyLPC
 	}
 	return NULL;
 }
-static struct NyLPC_TcIdPtrTableItem* obj2Item(NyLPC_TcIdPtrTable_t* i_inst,void* i_object)
+static struct NyLPC_TcIdPtrTableItem* obj2Item(NyLPC_TcIdPtrTable_t* i_inst,const void* i_object)
 {
 	int i;
 	for(i=0;i<NyLPC_TcIdPtrTable_NUMBER_OF_ITEM;i++){
@@ -62,7 +62,7 @@ NyLPC_TUInt8 NyLPC_cIdPtrTable_addItem(NyLPC_TcIdPtrTable_t* i_inst,void* i_obje
 			NyLPC_cMutex_lock(&i_inst->mux);
 			continue;
 		}
-		item->id=(i_inst->_counter+1);//id0は使わない
+		item->id=(i_inst->_counter)+1;
 		item->obj=i_object;
 		item->locked=NyLPC_TUInt8_FALSE;
 		i_inst->_counter=(i_inst->_counter+1)%255;
@@ -72,9 +72,9 @@ NyLPC_TUInt8 NyLPC_cIdPtrTable_addItem(NyLPC_TcIdPtrTable_t* i_inst,void* i_obje
 }
 void NyLPC_cIdPtrTable_removeItem(NyLPC_TcIdPtrTable_t* i_inst,const void* i_object)
 {
-	struct NyLPC_TcIdPtrTableItem* item;
+	volatile struct NyLPC_TcIdPtrTableItem* item;
 	NyLPC_cMutex_lock(&i_inst->mux);
-	item=obj2Item(i_inst,NULL);
+	item=obj2Item(i_inst,i_object);
 	while(item->locked){
 		NyLPC_cMutex_unlock(&i_inst->mux);
 		NyLPC_cThread_yield();
@@ -102,7 +102,7 @@ void NyLPC_cIdPtTable_unLockPtr(NyLPC_TcIdPtrTable_t* i_inst,const void* i_objec
 {
 	struct NyLPC_TcIdPtrTableItem* item;
 	NyLPC_cMutex_lock(&i_inst->mux);
-	item=obj2Item(i_inst,NULL);
+	item=obj2Item(i_inst,i_object);
 	if(item!=NULL){
 		item->locked=NyLPC_TUInt8_FALSE;
 	}

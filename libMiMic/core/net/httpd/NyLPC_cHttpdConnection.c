@@ -8,7 +8,7 @@
 
 NyLPC_TBool NyLPC_cHttpdConnection_initialize(NyLPC_TcHttpdConnection_t* i_inst,NyLPC_TcHttpd_t* i_parent_httpd)
 {
-    i_inst->_socket=NyLPC_cNetIf_createTcpSocketEx(NyLPC_TSocketType_TCP_HTTP);
+    i_inst->_socket=NyLPC_cNet_createTcpSocketEx(NyLPC_TSocketType_TCP_HTTP);
     if(i_inst->_socket==NULL){
     	return NyLPC_TBool_FALSE;
     }

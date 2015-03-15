@@ -1098,7 +1098,7 @@ NyLPC_TBool NyLPC_cMDnsServer_initialize(
 {
     NyLPC_cStopwatch_initialize(&(i_inst->_periodic_sw));
     NyLPC_cStopwatch_startExpire(&(i_inst->_periodic_sw),1000);
-    i_inst->_socket=NyLPC_cNetIf_createUdpSocketEx(MDNS_MCAST_PORT,NyLPC_TSocketType_UDP_NOBUF);
+    i_inst->_socket=NyLPC_cNet_createUdpSocketEx(MDNS_MCAST_PORT,NyLPC_TSocketType_UDP_NOBUF);
     i_inst->_socket->_tag=i_inst;
     NyLPC_iUdpSocket_setOnRxHandler(i_inst->_socket,onPacket);
     NyLPC_iUdpSocket_setOnPeriodicHandler(i_inst->_socket,onPeriodic);

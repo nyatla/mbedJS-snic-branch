@@ -32,6 +32,10 @@ NyLPC_TBool NyLPC_cSnicWifi_on(NyLPC_TcSnicWifi_t* i_inst,NyLPC_Snic_TCuntryCode
 NyLPC_TBool NyLPC_cSnicWifi_off(NyLPC_TcSnicWifi_t* i_inst);
 NyLPC_TBool NyLPC_cSnicWifi_join(NyLPC_TcSnicWifi_t* i_inst,const void* i_ssid,NyLPC_TUInt16 i_ssid_len,NyLPC_TUInt8 i_smode,const void* i_seq_key,NyLPC_TUInt16 i_seq_key_len);
 NyLPC_TBool NyLPC_cSnicWifi_disconnect(NyLPC_TcSnicWifi_t* i_inst);
+//protected
+NyLPC_TBool NyLPC_cSnicWifi_rxHandler(struct NyLPC_TiSnicDevice_Interface* i_dev);
+
+
 #ifdef __cplusplus
 }
 #endif

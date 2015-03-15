@@ -107,10 +107,6 @@ struct NyLPC_TcIPv4
     NyLPC_TcMutex_t _sock_mutex;
     /** リスナリソースの保護用。コールバック関数から呼び出されるソケット内部のリソース保護に使用する共通MUTEX*/
     NyLPC_TcMutex_t _listener_mutex;
-    /** NyLPC_cTcpSocketを管理するポインタリストです。*/
-    NyLPC_TcPtrTbl_t _socket_tbl;
-    /** _socket_tblが使用するメモリ領域です。*/
-    NyLPC_TcMiMicIpBaseSocket_t* _socket_array_buf[NyLPC_cIPv4_MAX_SOCKET];
     /** 0-0xfffまでを巡回するカウンタ*/
     NyLPC_TUInt16 tcp_port_counter;
 };
@@ -154,34 +150,6 @@ void NyLPC_cIPv4_start(
  */
 void NyLPC_cIPv4_stop(
     NyLPC_TcIPv4_t* i_inst);
-
-/**
- * この関数は、NyLPC_TcBaseSocketオブジェクトを管理リストへ追加します。
- * @param i_inst
- * 操作するインスタンス。
- * @param i_sock
- * 追加するインスタンスのポインタ
- * @return
- * 追加が成功するとTRUEを返します。
- */
-NyLPC_TBool NyLPC_cIPv4_addSocket(
-    NyLPC_TcIPv4_t* i_inst,
-    NyLPC_TcMiMicIpBaseSocket_t* i_sock);
-
-/**
- * この関数は、NyLPC_cTcpSocketオブジェクトを管理リストから除外します。
- * NyLPC_TcBaseSocketが使います。
- * @param i_inst
- * 操作するインスタンス。
- * @param i_sock
- * 削除するインスタンスのポインタ
- * @return
- * 削除が成功するとTRUEを返します。
- */
-NyLPC_TBool NyLPC_cIPv4_removeSocket(
-    NyLPC_TcIPv4_t* i_inst,
-    NyLPC_TcMiMicIpBaseSocket_t* i_sock);
-
 
 /**
  * この関数は、RxIPパケットを処理して、管理下のインスタンスに処理を依頼します。

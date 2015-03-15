@@ -1,5 +1,5 @@
 
-#include "NyLPC_cNetIf.h"
+#include "NyLPC_cNet.h"
 #include "./mimicip/NyLPC_cMiMicIpNetIf_protected.h"
 #include "dhcp/NyLPC_cDhcpClient.h"
 #include "apipa/NyLPC_cApipa.h"
@@ -14,21 +14,19 @@ const static struct NyLPC_TiNetInterface_Interface* netif;
 
 
 
-void NyLPC_cNetIf_initialize(void)
+void NyLPC_cNet_initialize(const struct NyLPC_TiNetInterface_Interface* i_netif)
 {
-	if(netif==NULL){
-		//ここでネットワークインタフェイスを切り替えてくれ。
-		netif=NyLPC_cMiMicIpNetIf_getNetInterface();
-	}
+	NyLPC_Assert(netif==NULL);
+	netif=i_netif;
 }
 
-void NyLPC_cNetIf_start(const NyLPC_TcIPv4Config_t* i_ref_config)
+void NyLPC_cNet_start(const NyLPC_TcIPv4Config_t* i_ref_config)
 {
 	netif->start(i_ref_config);
     return;
 }
 
-void NyLPC_cNetIf_stop(void)
+void NyLPC_cNet_stop(void)
 {
 	netif->stop();
     return;
@@ -39,44 +37,44 @@ void NyLPC_cNetIf_stop(void)
 /**
  * 指定したIPアドレスを要求するARPリクエストを発行します。
  */
-void NyLPC_cNetIf_sendArpRequest(const struct NyLPC_TIPv4Addr* i_addr)
+void NyLPC_cNet_sendArpRequest(const struct NyLPC_TIPv4Addr* i_addr)
 {
 	netif->sendarprequest(i_addr);
 }
 /**
  * ARPテーブルに指定したIPがあるかを返します。
  */
-NyLPC_TBool NyLPC_cNetIf_hasArpInfo(const struct NyLPC_TIPv4Addr* i_addr)
+NyLPC_TBool NyLPC_cNet_hasArpInfo(const struct NyLPC_TIPv4Addr* i_addr)
 {
 	return netif->hasarpinfo(i_addr);
 }
 
-NyLPC_TBool NyLPC_cNetIf_isInitService(void)
+NyLPC_TBool NyLPC_cNet_isInitService(void)
 {
 	return netif->isinitservice();
 }
 
-NyLPC_TiTcpSocket_t* NyLPC_cNetIf_createTcpSocketEx(NyLPC_TSocketType i_socktype)
+NyLPC_TiTcpSocket_t* NyLPC_cNet_createTcpSocketEx(NyLPC_TSocketType i_socktype)
 {
 	return netif->createTcpSocketEx(i_socktype);
 }
-NyLPC_TiUdpSocket_t* NyLPC_cNetIf_createUdpSocketEx(NyLPC_TUInt16 i_port,NyLPC_TSocketType i_socktype)
+NyLPC_TiUdpSocket_t* NyLPC_cNet_createUdpSocketEx(NyLPC_TUInt16 i_port,NyLPC_TSocketType i_socktype)
 {
 	return netif->createUdpSocetEx(i_port,i_socktype);
 }
-NyLPC_TiTcpListener_t* NyLPC_cNetIf_createTcpListenerEx(NyLPC_TUInt16 i_port)
+NyLPC_TiTcpListener_t* NyLPC_cNet_createTcpListenerEx(NyLPC_TUInt16 i_port)
 {
 	return netif->createTcpListener(i_port);
 }
 
-const struct NyLPC_TNetInterfaceInfo* NyLPC_cNetIf_getInterfaceInfo(void)
+const struct NyLPC_TNetInterfaceInfo* NyLPC_cNet_getInterfaceInfo(void)
 {
 	return netif->getinterfaceinfo();
 }
 
 
 
-NyLPC_TBool NyLPC_cNetIf_requestAddrDhcp(NyLPC_TcIPv4Config_t* i_cfg,NyLPC_TInt16 i_repeat)
+NyLPC_TBool NyLPC_cNet_requestAddrDhcp(NyLPC_TcIPv4Config_t* i_cfg,NyLPC_TInt16 i_repeat)
 {
     NyLPC_TBool ret;
     NyLPC_TcDhcpClient_t sock;
@@ -87,7 +85,7 @@ NyLPC_TBool NyLPC_cNetIf_requestAddrDhcp(NyLPC_TcIPv4Config_t* i_cfg,NyLPC_TInt1
     return ret;
 }
 
-NyLPC_TBool NyLPC_cNetIf_requestAddrApipa(NyLPC_TcIPv4Config_t* i_cfg,NyLPC_TInt16 i_repeat)
+NyLPC_TBool NyLPC_cNet_requestAddrApipa(NyLPC_TcIPv4Config_t* i_cfg,NyLPC_TInt16 i_repeat)
 {
     NyLPC_TBool ret;
     NyLPC_TcApipa_t sock;
